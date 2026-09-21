@@ -6,6 +6,10 @@ from collections import Counter
 
 
 WORD_RE = re.compile(r"[^\W_]+(?:['’-][^\W_]+)*", re.UNICODE)
+TOKEN_RE = re.compile(
+    r"https?://\S+|(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?:/\S*)?|\d+(?:[.,]\d+)+|[^\W_]+(?:['’-][^\W_]+)*",
+    re.UNICODE | re.I,
+)
 URL_RE = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:com|org|net|dev|io|ai|app|me)\b", re.I)
 
 
@@ -16,6 +20,11 @@ def _clip(value: float) -> float:
 def _matches(text: str, patterns: list[str]) -> int:
     lower = text.lower()
     return sum(1 for pattern in patterns if pattern in lower)
+
+
+def semantic_token_count(text: str) -> int:
+    """Count meaningful social-text tokens without splitting decimals/domains."""
+    return len(TOKEN_RE.findall(text))
 
 
 def slop_pattern_score(text: str) -> float:
@@ -288,5 +297,22 @@ def combine_slop_score(
         calibrated = max(calibrated, 0.84)
     elif pattern_score >= 0.30:
         calibrated = max(calibrated, 0.72)
+
+    # Short social posts are weak evidence by themselves. A single semantic
+    # head must not be enough to cross the default threshold without an
+    # independent structural signal.
+    token_count = semantic_token_count(text)
+    explicit_structure = max(
+        pattern_score,
+        structural.get("cta_bait", 0.0),
+        structural.get("listicle", 0.0),
+        structural.get("repetition", 0.0),
+        structural.get("buzzword_hype", 0.0),
+    )
+    if token_count <= 16 and pattern_score < 0.18 and explicit_structure < 0.35:
+        if strong_semantic < 2:
+            calibrated = min(calibrated, 0.49)
+        elif strong_semantic < 3:
+            calibrated = min(calibrated, 0.61)
 
     return max(0.01, min(0.99, calibrated))
