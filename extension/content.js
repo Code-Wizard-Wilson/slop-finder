@@ -5,7 +5,7 @@
   const POST_ATTR = "data-slop-finder-post-id";
   const STATE_ATTR = "data-slop-finder-state";
   const TAPE_CLASS = "slop-finder-overlay";
-  const DEFAULT_THRESHOLD = 0.80;
+  const DEFAULT_THRESHOLD = 0.65;
   const BATCH_SIZE = 4;
   const MIN_TEXT = 45;
   const MAX_TEXT = 4200;
@@ -43,10 +43,10 @@
     slopThreshold: Math.round(DEFAULT_THRESHOLD * 100),
     calibrationVersion: 0
   }, async (data) => {
-    let stored = Number(data.slopThreshold || 80);
-    if (Number(data.calibrationVersion) < 3) {
-      stored = 80;
-      await chrome.storage.local.set({ slopThreshold: 80, calibrationVersion: 3 });
+    let stored = Number(data.slopThreshold || 65);
+    if (Number(data.calibrationVersion) < 4) {
+      stored = 65;
+      await chrome.storage.local.set({ slopThreshold: 65, calibrationVersion: 4 });
     }
     threshold = Math.max(0.4, Math.min(0.98, stored / 100));
     refreshExistingMarks();
@@ -54,7 +54,7 @@
 
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.slopThreshold) {
-      threshold = Math.max(0.4, Math.min(0.98, Number(changes.slopThreshold.newValue || 80) / 100));
+      threshold = Math.max(0.4, Math.min(0.98, Number(changes.slopThreshold.newValue || 65) / 100));
       refreshExistingMarks();
     }
   });
@@ -469,7 +469,12 @@
       synthetic_tone: "SYNTHETIC",
       engagement_bait: "ENGAGEMENT BAIT",
       low_information: "LOW INFO",
-      pattern_score: "SLOP PATTERN",
+      formula_patterns: "FORMULAIC",
+      repetition: "REPETITIVE",
+      listicle: "LISTICLE",
+      cta_bait: "ENGAGEMENT BAIT",
+      buzzword_hype: "HYPE COPY",
+      regular_cadence: "ROBOTIC CADENCE",
     }[strongest] || "AI SLOP";
 
     overlay.innerHTML = `
@@ -478,7 +483,7 @@
         <span>AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${confidence}%&nbsp;&nbsp;·&nbsp;&nbsp;${friendly}&nbsp;&nbsp;·&nbsp;&nbsp;AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${confidence}%</span>
       </div>
       <div class="slop-finder-tape slop-finder-tape-accent">
-        <span>LAYA LENS&nbsp;&nbsp;·&nbsp;&nbsp;STYLE MATCH — NOT PROOF OF AUTHORSHIP</span>
+        <span>SLOP FINDER&nbsp;&nbsp;·&nbsp;&nbsp;STYLE MATCH — NOT PROOF OF AUTHORSHIP</span>
       </div>
     `;
 
@@ -525,7 +530,7 @@
         pointer-events: none !important;
         border-radius: inherit !important;
         isolation: isolate !important;
-        animation: slop-finder-overlay-in 320ms ease-out both;
+        animation: slop-finder-overlay-in 110ms ease-out both;
       }
 
       .slop-finder-dim {
@@ -533,9 +538,9 @@
         inset: 0;
         background:
           radial-gradient(circle at 50% 42%, rgba(255,255,255,.02), transparent 46%),
-          rgba(7, 7, 8, .16);
-        backdrop-filter: blur(.7px) saturate(.72);
-        -webkit-backdrop-filter: blur(.7px) saturate(.72);
+          rgba(10, 10, 8, .10);
+        backdrop-filter: blur(.35px) saturate(.9);
+        -webkit-backdrop-filter: blur(.35px) saturate(.9);
       }
 
       .slop-finder-tape {
@@ -547,13 +552,13 @@
         justify-content: center;
         overflow: hidden;
         background:
-          linear-gradient(180deg, rgba(255,255,255,.055), transparent 24%, rgba(0,0,0,.2) 78%),
-          repeating-linear-gradient(103deg, #090a0b 0 22px, #111315 22px 45px);
-        color: rgba(255,255,255,.97);
+          linear-gradient(180deg, rgba(255,255,255,.32), transparent 28%, rgba(150,105,0,.12) 82%),
+          repeating-linear-gradient(102deg, #ffd51a 0 34px, #f5c400 34px 68px);
+        color: #17130a;
         box-shadow:
-          0 8px 22px rgba(0,0,0,.34),
-          0 1px 0 rgba(255,255,255,.08) inset,
-          0 -1px 0 rgba(0,0,0,.72) inset;
+          0 7px 20px rgba(0,0,0,.25),
+          0 1px 0 rgba(255,255,255,.55) inset,
+          0 -1px 0 rgba(122,85,0,.28) inset;
         transform-origin: 0 50%;
         will-change: transform, filter;
       }
@@ -563,10 +568,10 @@
         position: absolute;
         inset: 0;
         background:
-          repeating-linear-gradient(90deg, transparent 0 8px, rgba(255,255,255,.025) 8px 9px),
-          linear-gradient(100deg, transparent 15%, rgba(255,255,255,.10) 35%, transparent 52%);
+          repeating-linear-gradient(90deg, transparent 0 8px, rgba(80,60,0,.045) 8px 9px),
+          linear-gradient(100deg, transparent 15%, rgba(255,255,255,.42) 35%, transparent 52%);
         transform: translateX(-65%);
-        animation: laya-tape-sheen 2.4s 900ms ease-in-out infinite;
+        animation: laya-tape-sheen 900ms 220ms ease-out 1;
       }
 
       .slop-finder-tape span {
@@ -578,7 +583,7 @@
         text-overflow: clip;
         font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         letter-spacing: .12em;
-        text-shadow: 0 1px 1px rgba(0,0,0,.55);
+        text-shadow: 0 1px 0 rgba(255,255,255,.38);
       }
 
       .slop-finder-tape-main {
@@ -586,7 +591,7 @@
         height: 54px;
         transform: rotate(-2.25deg) scaleX(0);
         clip-path: polygon(.2% 10%, 2% 2%, 4% 8%, 7% 1%, 10% 7%, 14% 2%, 18% 8%, 22% 1%, 26% 7%, 31% 2%, 36% 8%, 42% 1%, 48% 7%, 54% 2%, 60% 8%, 66% 1%, 72% 7%, 78% 2%, 84% 8%, 90% 1%, 96% 7%, 99.8% 2%, 100% 90%, 97% 98%, 93% 92%, 88% 99%, 82% 93%, 76% 98%, 69% 92%, 62% 99%, 55% 93%, 48% 98%, 41% 92%, 34% 99%, 27% 93%, 20% 98%, 13% 92%, 7% 99%, .2% 93%);
-        animation: laya-tape-unroll 720ms cubic-bezier(.16, 1, .3, 1) forwards;
+        animation: laya-tape-unroll 260ms cubic-bezier(.2, .85, .25, 1) forwards;
       }
 
       .slop-finder-tape-accent {
@@ -594,7 +599,7 @@
         height: 28px;
         opacity: .94;
         transform: rotate(1.4deg) scaleX(0);
-        animation: laya-tape-unroll-accent 610ms 170ms cubic-bezier(.16, 1, .3, 1) forwards;
+        animation: laya-tape-unroll-accent 190ms 55ms cubic-bezier(.2, .85, .25, 1) forwards;
       }
 
       .slop-finder-tape-accent span {
@@ -604,7 +609,7 @@
       }
 
       @keyframes laya-tape-unroll {
-        0% { transform: rotate(-2.25deg) scaleX(0); filter: blur(2px); }
+        0% { transform: rotate(-2.25deg) scaleX(0); filter: blur(.8px); }
         65% { transform: rotate(-2.25deg) scaleX(1.025); filter: blur(0); }
         100% { transform: rotate(-2.25deg) scaleX(1); filter: blur(0); }
       }

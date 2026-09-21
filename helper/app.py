@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from scoring import combine_slop_score, slop_pattern_score
+from scoring import combine_slop_score, slop_pattern_score, stylometric_features
 
 MODEL_NAME = os.getenv("LAYA_MODEL", "multilingual").strip().lower()
 MODEL_SPECS = {
@@ -24,7 +24,7 @@ if MODEL_NAME not in MODEL_SPECS:
         f"Choose one of: {', '.join(MODEL_SPECS)}"
     )
 
-app = FastAPI(title="Slop Finder Local Helper", version="0.3.0")
+app = FastAPI(title="Slop Finder Local Helper", version="0.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -200,8 +200,12 @@ def analyze(payload: AnalyzeRequest):
 
         signals = {name: probability(answers.get(name, {})) for name in qs}
         pattern_score = slop_pattern_score(block.text)
-        signals["pattern_score"] = round(pattern_score, 4)
-        risk = combine_slop_score(signals, pattern_score, block.text)
+        structural = stylometric_features(block.text)
+        signals["formula_patterns"] = round(pattern_score, 4)
+        for key, value in structural.items():
+            if key != "specificity":
+                signals[key] = value
+        risk = combine_slop_score(signals, pattern_score, block.text, structural)
 
         secondary = sorted(
             signals.items(),

@@ -31,10 +31,10 @@
     <section class="controls">
       <div class="control-row">
         <label for="threshold">AI-slop threshold</label>
-        <output id="thresholdValue">80%</output>
+        <output id="thresholdValue">65%</output>
       </div>
-      <input id="threshold" type="range" min="45" max="95" step="1" value="80">
-      <p class="hint">Higher = fewer false positives. The score is a style match, not proof that AI wrote the post.</p>
+      <input id="threshold" type="range" min="45" max="95" step="1" value="65">
+      <p class="hint">Higher = stricter filtering. The score measures slop-like structure and low-value social-copy patterns, not proof of AI authorship.</p>
     </section>
 
     <section id="errorBox" class="error hidden"></section>

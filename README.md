@@ -31,7 +31,7 @@ Slop Finder also has a deliberately narrow deterministic pattern layer for recog
 
 The final score requires agreement between multiple signals. A short post cannot get a high score merely because one classifier thinks it sounds polished or synthetic.
 
-Default threshold: **80%**.
+Default threshold: **65%**.
 
 ## Requirements
 
@@ -114,7 +114,7 @@ extension service worker
 Laya-MLX
   - semantic style dimensions
           +
-precision-first scoring layer
+research-guided hybrid scoring layer
           |
           v
 animated tape + side panel
@@ -132,9 +132,27 @@ The scoring layer intentionally:
 - requires agreement between synthetic tone and templated structure;
 - caps scores for very short posts without explicit formula markers;
 - boosts only narrow, recognizable slop-copy patterns;
-- defaults to a relatively high 80% threshold.
+- uses a 65% default threshold after structural + semantic evidence are combined.
 
 This means some actual AI-written posts will not be flagged. That is intentional: writing style alone cannot reliably establish authorship.
+
+## Research basis
+
+Slop Finder intentionally does **not** treat one style classifier as ground truth. Research on machine-generated-text detection shows that short social-media posts are a particularly difficult setting and that real-world detectors can produce substantial false positives.
+
+The current design is informed by:
+
+- **MultiSocial (ACL 2025)** — a 472k-text multilingual benchmark specifically for social-media machine-text detection. In its benchmark, Fast-DetectGPT and Binoculars were strong zero-shot baselines, while domain-fine-tuned detectors performed especially well. https://aclanthology.org/2025.acl-long.36/
+- **When Detection Fails (ACL 2025)** — shows why short, informal social-media text and fine-tuned generators make authorship detection substantially harder. https://aclanthology.org/2025.findings-acl.695/
+- **A Practical Examination of AI-Generated Text Detectors (NAACL 2025)** — demonstrates that detector performance can collapse out of distribution and under modest evasion. https://aclanthology.org/2025.findings-naacl.271/
+- **AI-Generated “Slop” in Online Biomedical Science Educational Videos (JMIR 2025)** — frames slop around low human care, low usefulness/value, and careless production rather than merely “sounds like AI.” https://mededu.jmir.org/2025/1/e80084
+
+For that reason Slop Finder combines two layers:
+
+1. **Laya-MLX semantic signals** — synthetic tone, templated structure, low information density, genericity, and engagement bait.
+2. **Local structural signals** — formulaic hooks, repeated n-grams, listicle structure, calls to action, hype vocabulary, regular sentence cadence, and concrete-specificity evidence.
+
+A single high signal is not enough. Strong matches usually need multiple cues to agree, while several explicit formula patterns can independently raise the score. This aims to detect *slop-like copy* rather than claim authorship.
 
 ## Privacy and local networking
 

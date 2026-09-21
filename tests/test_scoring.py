@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "helper"))
 
-from scoring import combine_slop_score, slop_pattern_score  # noqa: E402
+from scoring import combine_slop_score, slop_pattern_score, stylometric_features  # noqa: E402
 
 
 class ScoringRegressionTests(unittest.TestCase):
@@ -88,6 +88,49 @@ class ScoringRegressionTests(unittest.TestCase):
         )
         self.assertGreater(pattern, 0.40)
         self.assertGreater(score, 0.80)
+
+    def test_formulaic_social_post_crosses_default_threshold(self):
+        text = (
+            "AI is not replacing humans. Humans using AI are replacing humans who do not. "
+            "The future is already here. Adapt or get left behind. "
+            "Here are 5 tools everyone should master in 2026."
+        )
+        pattern = slop_pattern_score(text)
+        structural = stylometric_features(text)
+        score = combine_slop_score(
+            {
+                "genericity": 0.0149,
+                "templated_style": 0.1898,
+                "synthetic_tone": 0.5450,
+                "engagement_bait": 0.0302,
+                "low_information": 0.0921,
+            },
+            pattern,
+            text,
+            structural,
+        )
+        self.assertGreaterEqual(score, 0.65)
+
+    def test_specific_technical_post_stays_below_threshold(self):
+        text = (
+            "Spent 40 minutes debugging why the parser failed only on one CSV. "
+            "Turned out row 1842 had a stray quote inside a vendor name. "
+            "Added a regression test and pushed the fix."
+        )
+        structural = stylometric_features(text)
+        score = combine_slop_score(
+            {
+                "genericity": 0.0052,
+                "templated_style": 0.0657,
+                "synthetic_tone": 0.0137,
+                "engagement_bait": 0.0169,
+                "low_information": 0.0087,
+            },
+            slop_pattern_score(text),
+            text,
+            structural,
+        )
+        self.assertLess(score, 0.30)
 
 
 if __name__ == "__main__":

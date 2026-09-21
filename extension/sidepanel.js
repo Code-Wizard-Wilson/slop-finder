@@ -25,7 +25,12 @@ const LABELS = {
   synthetic_tone: "Synthetic tone",
   engagement_bait: "Engagement bait",
   low_information: "Low information",
-  pattern_score: "Slop patterns",
+  formula_patterns: "Formula patterns",
+  repetition: "Repetition",
+  listicle: "Listicle",
+  cta_bait: "CTA bait",
+  buzzword_hype: "Hype language",
+  regular_cadence: "Regular cadence",
   ai_slop: "AI slop"
 };
 
@@ -198,12 +203,12 @@ rescanBtn.addEventListener("click", async () => {
   await refreshStatus();
 });
 
-chrome.storage.local.get({ slopThreshold: 80, calibrationVersion: 0 }, async ({ slopThreshold, calibrationVersion }) => {
+chrome.storage.local.get({ slopThreshold: 65, calibrationVersion: 0 }, async ({ slopThreshold, calibrationVersion }) => {
   // v3 switched to precision-first calibration. Reset older installs once so
   // stale 72% settings do not recreate the old false-positive behavior.
-  if (Number(calibrationVersion) < 3) {
-    slopThreshold = 80;
-    await chrome.storage.local.set({ slopThreshold: 80, calibrationVersion: 3 });
+  if (Number(calibrationVersion) < 4) {
+    slopThreshold = 65;
+    await chrome.storage.local.set({ slopThreshold: 65, calibrationVersion: 4 });
   }
   threshold.value = String(slopThreshold);
   thresholdValue.textContent = `${slopThreshold}%`;
