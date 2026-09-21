@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Slop Finder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">AUTO FEED SCANNER</div>
+        <h1>Slop Finder</h1>
+      </div>
+      <span id="helperStatus" class="status neutral">checking</span>
+    </header>
+
+    <section class="hero">
+      <div class="live-row">
+        <span class="live-dot"></span>
+        <strong>Automatic scan is on</strong>
+      </div>
+      <p>
+        Slop Finder watches new posts while you scroll on X, LinkedIn and Reddit.
+        No Analyze button is needed.
+      </p>
+      <div id="sitePill" class="site-pill">Detecting site…</div>
+    </section>
+
+    <section class="controls">
+      <div class="control-row">
+        <label for="threshold">AI-slop threshold</label>
+        <output id="thresholdValue">80%</output>
+      </div>
+      <input id="threshold" type="range" min="45" max="95" step="1" value="80">
+      <p class="hint">Higher = fewer false positives. The score is a style match, not proof that AI wrote the post.</p>
+    </section>
+
+    <section id="errorBox" class="error hidden"></section>
+
+    <section class="summary" id="summary">
+      <div class="summary-card">
+        <span>Detected posts</span>
+        <strong id="detectedCount">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>Scanned</span>
+        <strong id="scannedCount">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>Flagged</span>
+        <strong id="flaggedCount">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>Queue</span>
+        <strong id="queueCount">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>Last batch</span>
+        <strong id="latencyValue">—</strong>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="section-heading">
+        <h2>Recent AI-slop matches</h2>
+        <span id="scanState">idle</span>
+      </div>
+      <div id="emptyState" class="empty">
+        Scroll the feed. Matching posts will be taped automatically.
+      </div>
+      <div id="resultsList"></div>
+    </section>
+
+    <div class="actions">
+      <button id="rescanBtn" class="secondary">Rescan visible posts</button>
+      <button id="clearBtn" class="secondary">Clear tape</button>
+    </div>
+
+    <footer>
+      Text is analyzed locally by Laya-MLX on this Mac.
+    </footer>
+  </main>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

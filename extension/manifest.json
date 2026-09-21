@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Slop Finder",
+  "version": "0.3.0",
+  "description": "Automatic local AI-slop style detector for X, LinkedIn and Reddit powered by Laya-MLX.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "sidePanel",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_title": "Open Slop Finder"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
