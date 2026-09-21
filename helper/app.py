@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field
 from scoring import combine_slop_score, slop_pattern_score, stylometric_features
 
 MODEL_NAME = os.getenv("LAYA_MODEL", "multilingual").strip().lower()
+MLX_CACHE_LIMIT_MB = max(0, int(os.getenv("MLX_CACHE_LIMIT_MB", "512")))
+MLX_CACHE_LIMIT_BYTES = MLX_CACHE_LIMIT_MB * 1024 * 1024
 MODEL_SPECS = {
     "english": "aac6fef/laya-mlx",
     "multilingual": "aac6fef/laya-multilingual-mlx",
@@ -24,7 +26,7 @@ if MODEL_NAME not in MODEL_SPECS:
         f"Choose one of: {', '.join(MODEL_SPECS)}"
     )
 
-app = FastAPI(title="Slop Finder Local Helper", version="0.4.1")
+app = FastAPI(title="Slop Finder Local Helper", version="0.4.2")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -34,6 +36,7 @@ app.add_middleware(
 )
 
 _agent = None
+_mx = None
 _model_error: str | None = None
 _model_lock = threading.Lock()
 
@@ -94,7 +97,7 @@ def questions() -> dict[str, Any]:
 
 
 def get_agent():
-    global _agent, _model_error
+    global _agent, _mx, _model_error
     if _agent is not None:
         return _agent
 
@@ -103,7 +106,15 @@ def get_agent():
             return _agent
 
         try:
+            import mlx.core as mx
             import laya_mlx as laya
+
+            _mx = mx
+            # MLX keeps unused Metal buffers in a free cache by default. For a
+            # background browser helper this can otherwise grow to many GB over
+            # a long scrolling session. This limit affects only *free cached*
+            # buffers; active model/inference memory is not constrained by it.
+            mx.set_cache_limit(MLX_CACHE_LIMIT_BYTES)
 
             checkpoint = MODEL_SPECS[MODEL_NAME]
             _agent = laya.load(
@@ -117,6 +128,31 @@ def get_agent():
         except Exception as exc:
             _model_error = f"{type(exc).__name__}: {exc}"
             raise
+
+
+def mlx_memory() -> dict[str, int | float | None]:
+    if _mx is None:
+        return {
+            "active_bytes": None,
+            "cache_bytes": None,
+            "peak_bytes": None,
+            "cache_limit_bytes": MLX_CACHE_LIMIT_BYTES,
+        }
+    return {
+        "active_bytes": int(_mx.get_active_memory()),
+        "cache_bytes": int(_mx.get_cache_memory()),
+        "peak_bytes": int(_mx.get_peak_memory()),
+        "cache_limit_bytes": MLX_CACHE_LIMIT_BYTES,
+    }
+
+
+def trim_mlx_cache_if_needed() -> None:
+    if _mx is None:
+        return
+    # set_cache_limit() reclaims on subsequent allocations. Explicitly clear
+    # only when the free cache is already above our target after a request.
+    if _mx.get_cache_memory() > MLX_CACHE_LIMIT_BYTES:
+        _mx.clear_cache()
 
 
 def probability(answer: Any) -> float:
@@ -139,8 +175,19 @@ def health():
         "model": MODEL_NAME,
         "checkpoint": MODEL_SPECS[MODEL_NAME],
         "loaded": _agent is not None,
+        "mlx_cache_limit_mb": MLX_CACHE_LIMIT_MB,
         "last_error": _model_error,
         "note": "The MLX checkpoint is loaded lazily on the first analysis request.",
+    }
+
+
+@app.get("/memory")
+def memory():
+    return {
+        "ok": True,
+        "engine": "laya-mlx",
+        "model": MODEL_NAME,
+        **mlx_memory(),
     }
 
 
@@ -227,6 +274,7 @@ def analyze(payload: AnalyzeRequest):
         )
 
     results.sort(key=lambda item: item.get("risk", 0.0), reverse=True)
+    trim_mlx_cache_if_needed()
 
     return {
         "ok": True,

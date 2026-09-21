@@ -165,6 +165,25 @@ The helper:
 - does not contain a cloud analytics client;
 - uses the locally cached MLX model after first download.
 
+## Memory usage
+
+Slop Finder limits the free MLX/Metal allocator cache to **512 MB** by default so long feed-scanning sessions do not retain many gigabytes of unused GPU/unified-memory buffers. This does not cap active model memory.
+
+Override the cache target when starting the helper:
+
+```bash
+MLX_CACHE_LIMIT_MB=256 ./run.sh
+MLX_CACHE_LIMIT_MB=1024 ./run.sh
+```
+
+Inspect MLX memory from the running helper:
+
+```bash
+curl http://127.0.0.1:8765/memory
+```
+
+The endpoint reports active, free-cache, and peak MLX memory in bytes.
+
 ## Development
 
 Static checks:
