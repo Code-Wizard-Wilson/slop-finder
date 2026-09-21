@@ -18,8 +18,63 @@ def _matches(text: str, patterns: list[str]) -> int:
     return sum(1 for pattern in patterns if pattern in lower)
 
 
+def authored_prose(text: str) -> str:
+    """Exclude explicit quotations/code from lexical evidence, not model context."""
+    text = re.sub(r"```[\s\S]*?```|`[^`\n]+`", " ", text)
+    text = re.sub(r"(?m)^\s*>.*$", " ", text)
+    return re.sub(r'"[^"\n]*"|“[^”]*”|«[^»]*»', " ", text)
+
+
+# Links and version components are not additional prose context. Keep the full
+# original text for the model; use this only to decide whether a style verdict
+# has enough evidence to be displayed.
+LINK_RE = re.compile(
+    r"(?:https?://|www\.)[^\s<>]+|"
+    r"(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:/[^\s<>]*)?",
+    re.I,
+)
+
+
+def prose_word_count(text: str) -> int:
+    prose = LINK_RE.sub(" ", authored_prose(text))
+    return sum(any(char.isalpha() for char in word) for word in WORD_RE.findall(prose))
+
+
+def short_text_is_unsupported(text: str, structural: dict[str, float], pattern_score: float) -> bool:
+    count = prose_word_count(text)
+    if count < 12:
+        return True
+    # For short messages, a model's impression of tone alone is unreliable.
+    # Repeated rhetoric or explicit formula clusters can corroborate it; normal
+    # punctuation, a list, and a product link cannot.
+    support = max(pattern_score, structural.get("cta_bait", 0.0),
+                  structural.get("conditional_template", 0.0),
+                  structural.get("contrast_template", 0.0))
+    return count < 30 and support < 0.30
+
+
+def rhetorical_features(text: str) -> dict[str, float]:
+    prose = authored_prose(text).lower().replace("’", "'")
+    conditionals = len(re.findall(
+        r"\b(?:if\b[^.!?\n]{3,100}\bthen\b|если\b[^.!?\n]{3,100}\bто\b)", prose))
+    contrasts = len(re.findall(
+        r"\b(?:not\s+[^.!?\n]{2,80}?\bbut\b|не\s+[^.!?\n]{2,80}?\bа\b|"
+        r"it(?:'s| is) not about[^.!?\n]{2,80}[.!?]?\s*it(?:'s| is) about|"
+        r"дело не в[^.!?\n]{2,80}?\bа в)", prose))
+    # Typography and a single conditional are weak evidence in every language.
+    words = len(WORD_RE.findall(prose))
+    dashes = len(re.findall(r"[—–]", prose))
+    dash_style = min(0.25, max(0, dashes - 1) / max(words, 40) * 3)
+    return {
+        "conditional_template": round(min(0.65, conditionals * 0.10 + max(0, conditionals - 1) * 0.15), 4),
+        "contrast_template": round(min(0.75, contrasts * 0.18), 4),
+        "dash_style": round(dash_style, 4),
+    }
+
+
 def slop_pattern_score(text: str) -> float:
     """Narrow score for recognizable mass-produced social-copy formulas."""
+    text = authored_prose(text)
     lower = text.lower()
     score = 0.0
 
@@ -102,6 +157,7 @@ def slop_pattern_score(text: str) -> float:
 
 def stylometric_features(text: str) -> dict[str, float]:
     """Cheap local signals aimed at *slop style*, not authorship."""
+    text = authored_prose(text)
     compact = " ".join(text.split())
     lower = compact.lower()
     words = WORD_RE.findall(lower)
@@ -171,7 +227,7 @@ def stylometric_features(text: str) -> dict[str, float]:
     specificity += min(0.24, number_hits * 0.06)
     code_hits = len(
         re.findall(
-            r"\b(?:[a-z]+_[a-z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*|[\w.-]+\.(?:py|js|ts|tsx|jsx|json|csv|md|swift)|api|sdk|github|commit|parser|regression test|endpoint|latency|benchmark)\b",
+            r"\b(?:[a-z]+_[a-z0-9_]+|(?-i:[a-z]+[A-Z][A-Za-z0-9]*)|[\w.-]+\.(?:py|js|ts|tsx|jsx|json|csv|md|swift)|api|sdk|github|commit|parser|regression test|endpoint|latency|benchmark)\b",
             text,
             re.I,
         )
@@ -195,6 +251,7 @@ def stylometric_features(text: str) -> dict[str, float]:
         "buzzword_hype": round(buzzword_score, 4),
         "regular_cadence": round(cadence, 4),
         "specificity": round(specificity, 4),
+        **rhetorical_features(text),
     }
 
 
@@ -204,89 +261,45 @@ def combine_slop_score(
     text: str,
     structural: dict[str, float] | None = None,
 ) -> float:
-    """Combine semantic + structural evidence into a slop-style score.
+    """Heuristic style score, not an authorship or calibrated probability.
 
-    This is NOT an AI-authorship probability. It is deliberately tuned for
-    low-value/formulaic social-media *slop*, where several cues should agree.
+    Low substance and formulaic rhetoric must agree. Correlated lexical features
+    share a capped contribution instead of each earning another bonus.
     """
-    structural = structural or {}
+    structural = structural if structural is not None else stylometric_features(text)
+    low_info = _clip(signals.get("low_information", 0.0))
+    templated = _clip(signals.get("templated_style", 0.0))
+    semantic = math.sqrt(low_info * templated)
+    rhetoric = max(structural.get("conditional_template", 0.0),
+                   structural.get("contrast_template", 0.0))
+    lexical = max(_clip(pattern_score), structural.get("cta_bait", 0.0),
+                  0.5 * structural.get("buzzword_hype", 0.0),
+                  0.5 * structural.get("repetition", 0.0), 0.5 * rhetoric)
+    score = 0.90 * semantic + 0.10 * lexical
+    if low_info >= 0.5 and templated >= 0.5 and rhetoric >= 0.35:
+        score += min(0.02, structural.get("dash_style", 0.0) * 0.08)
 
-    synthetic = signals.get("synthetic_tone", 0.0)
-    templated = signals.get("templated_style", 0.0)
-    low_info = signals.get("low_information", 0.0)
-    generic = signals.get("genericity", 0.0)
-    engagement = signals.get("engagement_bait", 0.0)
+    # Lack of text is uncertainty, not evidence of low-quality writing.
+    if short_text_is_unsupported(text, structural, pattern_score):
+        score = min(score, 0.39)
+    return round(_clip(score), 4)
 
-    style_consensus = math.sqrt(max(0.0, synthetic * templated))
-    filler_consensus = math.sqrt(max(0.0, low_info * generic))
 
-    semantic = (
-        0.48 * style_consensus
-        + 0.27 * filler_consensus
-        + 0.15 * engagement
-        + 0.10 * max(low_info, generic)
-    )
-
-    structural_score = (
-        0.30 * pattern_score
-        + 0.18 * structural.get("cta_bait", 0.0)
-        + 0.18 * structural.get("listicle", 0.0)
-        + 0.14 * structural.get("repetition", 0.0)
-        + 0.10 * structural.get("regular_cadence", 0.0)
-        + 0.10 * structural.get("buzzword_hype", 0.0)
-    )
-
-    score = 0.64 * semantic + 0.36 * structural_score
-
-    strong_semantic = sum(
-        value >= 0.55
-        for value in (synthetic, templated, low_info, generic, engagement)
-    )
-    strong_structural = sum(
-        value >= 0.35
-        for value in (
-            pattern_score,
-            structural.get("cta_bait", 0.0),
-            structural.get("listicle", 0.0),
-            structural.get("repetition", 0.0),
-            structural.get("buzzword_hype", 0.0),
-        )
-    )
-
-    if strong_semantic >= 3:
-        score += 0.20
-    elif strong_semantic == 2:
-        score += 0.10
-
-    if strong_structural >= 2:
-        score += 0.10
-
-    if pattern_score >= 0.25:
-        score += min(0.22, pattern_score * 0.32)
-
-    # Concrete grounding reduces medium-confidence style matches, but never
-    # overrides several strong slop signals.
-    specificity = structural.get("specificity", 0.0)
-    if specificity >= 0.20 and strong_semantic < 3 and pattern_score < 0.30:
-        score -= 0.18 * specificity
-
-    compact = " ".join(text.split())
-    if len(compact) < 65 and pattern_score < 0.18 and strong_semantic < 3:
-        score = min(score, 0.42)
-    elif len(compact) < 100 and pattern_score < 0.14 and strong_semantic < 3:
-        score = min(score, 0.56)
-
-    # Map the evidence range to a readable confidence scale while preserving
-    # ordering around the decision boundary.
-    score = _clip(score)
-    calibrated = 1.0 / (1.0 + math.exp(-8.5 * (score - 0.40)))
-
-    # Multiple explicit formula markers are unusually informative for *slop*
-    # even when a semantic classifier underestimates the style. This is not an
-    # authorship claim; it is a high-confidence match to mass-produced copy.
-    if pattern_score >= 0.50:
-        calibrated = max(calibrated, 0.84)
-    elif pattern_score >= 0.30:
-        calibrated = max(calibrated, 0.72)
-
-    return max(0.01, min(0.99, calibrated))
+def decision_for(text: str, signals: dict[str, float], risk: float,
+                 *, truncated: bool = False, text_scope: str = "post") -> tuple[str, list[str]]:
+    reasons = []
+    if truncated:
+        reasons.append("incomplete_text")
+    if text_scope == "title_only":
+        reasons.append("title_only")
+    if prose_word_count(text) < 12:
+        reasons.append("too_short")
+    elif short_text_is_unsupported(text, stylometric_features(text), slop_pattern_score(text)):
+        reasons.append("insufficient_style_evidence")
+    low = signals.get("low_information", 0.0)
+    style = signals.get("templated_style", 0.0)
+    if abs(low - style) > 0.55:
+        reasons.append("conflicting_signals")
+    if reasons:
+        return "uncertain", reasons
+    return ("slop" if risk >= 0.65 else "not_flagged"), []

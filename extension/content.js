@@ -1,5 +1,6 @@
 (() => {
-  const SCANNER_VERSION = "0.4.1";
+  const SCANNER_VERSION = "0.5.2";
+  const REQUIRED_SCORING_VERSION = "0.5.0";
   const previousScanner = globalThis.__slopFinderScanner;
 
   if (previousScanner?.version === SCANNER_VERSION && typeof previousScanner.rescan === "function") {
@@ -18,11 +19,14 @@
   const DEFAULT_THRESHOLD = 0.65;
   const BATCH_SIZE = 4;
   const MIN_TEXT = 45;
-  const MAX_TEXT = 4200;
+  const MAX_TEXT = 6000;
+  const extraction = globalThis.SlopFinderExtraction;
+  if (!extraction) return;
 
   let threshold = DEFAULT_THRESHOLD;
   let idCounter = 0;
   let scanTimer = null;
+  let scanDue = 0;
   let processing = false;
   let helperOfflineUntil = 0;
   const queue = [];
@@ -34,6 +38,7 @@
     supported: false,
     scanned: 0,
     flagged: 0,
+    uncertain: 0,
     queued: 0,
     analyzing: 0,
     helperError: "",
@@ -43,6 +48,12 @@
     scanCycles: 0,
     lastScanAt: 0,
     scannerVersion: SCANNER_VERSION,
+    skippedVisibility: 0,
+    skippedMissingText: 0,
+    skippedShortText: 0,
+    submitted: 0,
+    staleResults: 0,
+    scannerError: "",
   };
 
   const SITE = detectSite();
@@ -66,12 +77,13 @@
     refreshExistingMarks();
   });
 
-  chrome.storage.onChanged.addListener((changes) => {
+  const onStorageChanged = (changes) => {
     if (changes.slopThreshold) {
       threshold = Math.max(0.4, Math.min(0.98, Number(changes.slopThreshold.newValue || 65) / 100));
       refreshExistingMarks();
     }
-  });
+  };
+  chrome.storage.onChanged.addListener(onStorageChanged);
 
   function detectSite() {
     const host = location.hostname.toLowerCase().replace(/^www\./, "");
@@ -83,7 +95,6 @@
         selectors: ["article[data-testid='tweet']"],
         markerSelectors: ["article[data-testid='tweet']"],
         rootSelector: "article[data-testid='tweet']",
-        textSelectors: ["[data-testid='tweetText']"],
       };
     }
 
@@ -91,33 +102,6 @@
       return {
         name: "Reddit",
         key: "reddit",
-        selectors: [
-          "shreddit-post",
-          "article[data-testid='post-container']",
-          "div[data-testid='post-container']",
-          "[data-post-id]",
-          "[data-fullname^='t3_']",
-          "main article",
-          "main [role='article']"
-        ],
-        markerSelectors: [
-          "a[href*='/comments/']",
-          "[data-click-id='comments']",
-          "a[aria-label*='comment']",
-          "button[aria-label*='upvote']",
-          "button[aria-label*='downvote']",
-          "shreddit-post"
-        ],
-        rootSelector: "shreddit-post, article[data-testid='post-container'], div[data-testid='post-container'], [data-post-id], [data-fullname^='t3_'], article, [role='article']",
-        textSelectors: [
-          "[slot='title']",
-          "[data-testid='post-title']",
-          "[data-post-click-location='title']",
-          "[data-post-click-location='text-body']",
-          "[slot='text-body']",
-          "[data-click-id='text']",
-          ".md"
-        ],
       };
     }
 
@@ -126,6 +110,8 @@
         name: "LinkedIn",
         key: "linkedin",
         selectors: [
+          "main [role='listitem'][componentkey^='update-card-focus']",
+          "main [role='listitem'][data-urn*='activity']",
           "main div.feed-shared-update-v2",
           "main [data-urn^='urn:li:activity']",
           "main [data-urn*='activity']",
@@ -144,16 +130,7 @@
           "button[aria-label*='Repost']",
           "button[aria-label*='React']"
         ],
-        rootSelector: "article, [role='article'], .feed-shared-update-v2, [data-view-name='feed-full-update'], [data-urn*='activity']",
-        textSelectors: [
-          ".update-components-text",
-          ".feed-shared-update-v2__description",
-          ".feed-shared-text",
-          ".break-words",
-          "[data-test-id='main-feed-activity-card__commentary']",
-          "[data-view-name='feed-commentary']",
-          "[dir='ltr']"
-        ],
+        rootSelector: "[role='listitem'][componentkey^='update-card-focus'], [role='listitem'][data-urn*='activity'], article, [role='article'], .feed-shared-update-v2, [data-view-name='feed-full-update'], [data-urn*='activity']",
       };
     }
 
@@ -164,6 +141,7 @@
     if (!SITE) return MIN_TEXT;
     if (SITE.key === "x") return 18;
     if (SITE.key === "reddit") return 30;
+    if (SITE.key === "linkedin") return 20;
     return MIN_TEXT;
   }
 
@@ -175,57 +153,41 @@
       .trim();
   }
 
+  function extractPost(root) {
+    return extraction.extract(root, SITE.key, MAX_TEXT);
+  }
+
   function extractText(root) {
-    if (!SITE) return "";
+    return extractPost(root).text;
+  }
 
-    const chunks = [];
-    const seen = new Set();
+  function postHash(post) {
+    return fastHash(JSON.stringify([post.text, post.truncated, post.text_scope, post.post_key]));
+  }
 
-    const push = (value) => {
-      const text = cleanText(value);
-      if (!text || seen.has(text)) return;
-      seen.add(text);
-      chunks.push(text);
-    };
-
-    if (SITE.key === "reddit") {
-      push(root.getAttribute?.("post-title"));
-      push(root.getAttribute?.("post-title-text"));
-    }
-
-    for (const selector of SITE.textSelectors) {
-      for (const node of root.querySelectorAll(selector)) {
-        if (node.closest?.(".slop-finder-overlay")) continue;
-        push(node.innerText || node.textContent);
+  function visiblePostBox(el) {
+    if (!(el instanceof Element)) return null;
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") return null;
+    const own = el.getBoundingClientRect();
+    const hasSize = rect => rect.width >= 120 && rect.height >= 12;
+    if (hasSize(own)) return { el, rect: own };
+    // Web-component hosts / display:contents wrappers can have a zero rect
+    // while their authored content is visible. Inspect their rendered children.
+    const candidates = extraction.query(el,
+      "article, [slot='text-body'], [slot='title'], [data-testid='tweetText'], [data-testid='expandable-text-box'], [data-testid='main-feed-activity-card__commentary'], .update-components-text, .md, .entry");
+    for (const child of candidates) {
+      const rect = child.getBoundingClientRect();
+      if (hasSize(rect) && rect.bottom > -innerHeight * 0.45 && rect.top < innerHeight * 1.65) {
+        return { el: child, rect };
       }
     }
-
-    let text = cleanText(chunks.join("\n\n"));
-
-    // On X, tweetText is the actual authored text. Falling back to the whole
-    // article adds username, timestamps, media duration and engagement counts,
-    // which badly pollutes style classification.
-    if (SITE.key === "x") {
-      if (!text) return "";
-      if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
-      return text;
-    }
-
-    if (text.length < minTextForSite()) {
-      const clone = root.cloneNode(true);
-      clone.querySelectorAll(".slop-finder-overlay, button, [role='button']").forEach((node) => node.remove());
-      text = cleanText(clone.innerText || clone.textContent);
-    }
-
-    if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
-    return text;
+    return null;
   }
 
   function isNearViewport(el) {
-    if (!(el instanceof Element)) return false;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 180 || rect.height < 30) return false;
-    return rect.bottom > -innerHeight * 0.45 && rect.top < innerHeight * 1.65;
+    const box = visiblePostBox(el);
+    return !!box && box.rect.bottom > -innerHeight * 0.45 && box.rect.top < innerHeight * 1.65;
   }
 
   function chooseMarkerRoot(marker) {
@@ -253,6 +215,11 @@
 
   function candidateRoots() {
     if (!SITE) return [];
+    if (SITE.key === "reddit") {
+      const roots = extraction.redditRoots(document);
+      stats.candidateRoots = roots.length;
+      return roots;
+    }
     const set = new Set();
 
     for (const selector of SITE.selectors) {
@@ -293,16 +260,24 @@
 
     const roots = [];
     const dedupe = new Set();
+    stats.skippedVisibility = 0;
+    stats.skippedMissingText = 0;
+    stats.skippedShortText = 0;
 
     for (const el of candidateRoots()) {
-      if (!(el instanceof HTMLElement) || !isNearViewport(el)) continue;
+      if (!(el instanceof HTMLElement) || !isNearViewport(el)) {
+        stats.skippedVisibility += 1;
+        continue;
+      }
 
-      const text = extractText(el);
-      if (text.length < minTextForSite()) continue;
-      const key = fastHash(text);
+      const post = extractPost(el);
+      const text = post.text;
+      if (!text) { stats.skippedMissingText += 1; continue; }
+      if (text.length < minTextForSite()) { stats.skippedShortText += 1; continue; }
+      const key = postHash(post);
       if (dedupe.has(key)) continue;
       dedupe.add(key);
-      roots.push({ el, text, hash: key });
+      roots.push({ el, text, hash: key, post });
     }
 
     stats.foundRoots = roots.length;
@@ -327,7 +302,7 @@
     return id;
   }
 
-  function enqueuePost(el, text, hash) {
+  function enqueuePost(el, text, hash, post) {
     const previousHash = el.getAttribute(HASH_ATTR);
     const state = el.getAttribute(STATE_ATTR);
 
@@ -338,8 +313,14 @@
     el.setAttribute(STATE_ATTR, "queued");
 
     const id = ensureId(el);
+    resultsById.delete(id);
+    // Remove superseded queued versions of a recycled or expanded post.
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (queue[i].el === el) queue.splice(i, 1);
+    }
     queue.push({
       id,
+      post,
       text,
       tag: el.tagName.toLowerCase(),
       site: SITE.key,
@@ -355,18 +336,31 @@
     stats.scanCycles += 1;
     stats.lastScanAt = Date.now();
 
-    for (const { el, text, hash } of stableRoots()) {
-      enqueuePost(el, text, hash);
+    for (const { el, text, hash, post } of stableRoots()) {
+      enqueuePost(el, text, hash, post);
     }
 
+    syncFindings();
     stats.queued = queue.length;
     if (queue.length) drainQueue();
   }
 
   function scheduleScan(delay = 180) {
     if (!SITE) return;
+    const due = Date.now() + delay;
+    // Frequent feed mutations must not keep pushing the scan into the future.
+    if (scanTimer !== null && due >= scanDue) return;
     clearTimeout(scanTimer);
-    scanTimer = setTimeout(scanPosts, delay);
+    scanDue = due;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      try {
+        stats.scannerError = "";
+        scanPosts();
+      } catch (error) {
+        stats.scannerError = String(error?.message || error);
+      }
+    }, delay);
   }
 
   async function drainQueue() {
@@ -377,16 +371,21 @@
     }
 
     processing = true;
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (!queue[i].el.isConnected || postHash(extractPost(queue[i].el)) !== queue[i].hash) queue.splice(i, 1);
+    }
     const batch = queue.splice(0, BATCH_SIZE);
     stats.queued = queue.length;
     stats.analyzing = batch.length;
+    if (!batch.length) { processing = false; return; }
     stats.helperError = "";
 
     for (const item of batch) {
       item.el?.setAttribute(STATE_ATTR, "analyzing");
     }
 
-    const started = performance.now();
+    const requestStarted = performance.now();
+    stats.submitted += batch.length;
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -394,7 +393,8 @@
         payload: {
           url: location.href,
           title: document.title,
-          blocks: batch.map(({ id, text, tag, site }) => ({ id, text, tag, site }))
+          blocks: batch.map(({ id, text, tag, site, post }) => ({ id, text, tag, site,
+            truncated: post.truncated, text_scope: post.text_scope }))
         }
       });
 
@@ -402,24 +402,36 @@
         throw new Error(response?.error || "Local Laya helper did not respond.");
       }
 
-      stats.lastLatencyMs = Math.round(performance.now() - started);
+      if (response.data?.scoring_version !== REQUIRED_SCORING_VERSION) {
+        throw new Error("Restart the local helper to use Slop Finder scoring " + REQUIRED_SCORING_VERSION);
+      }
+
+      stats.lastLatencyMs = Math.round(performance.now() - requestStarted);
       const resultMap = new Map((response.data?.results || []).map((item) => [item.id, item]));
 
       for (const item of batch) {
+        // Virtualized feeds can reuse this node while inference is running.
+        if (!item.el?.isConnected || item.el.getAttribute(HASH_ATTR) !== item.hash
+            || postHash(extractPost(item.el)) !== item.hash) { stats.staleResults += 1; continue; }
         const result = resultMap.get(item.id);
         if (!result || result.error) {
           item.el?.setAttribute(STATE_ATTR, "error");
+          stats.helperError = result?.error || "Missing analysis result";
+          helperOfflineUntil = Date.now() + 5000;
+          resultsById.set(item.id, { id: item.id, text: item.text, risk: null,
+            decision: "uncertain", reasons: ["analysis_failed"],
+            textHash: item.hash, el: item.el });
           continue;
         }
 
+        if (!started) return;
         stats.scanned += 1;
         item.el?.setAttribute(STATE_ATTR, "done");
-        resultsById.set(item.id, result);
+        resultsById.set(item.id, { ...result, textHash: item.hash, el: item.el });
 
-        if (Number(result.risk || 0) >= threshold) {
+        if (result.decision !== "uncertain" && Number(result.risk || 0) >= threshold) {
           markSlop(item.el, result);
-          stats.flagged += 1;
-          rememberFinding(result);
+
         } else {
           removeTape(item.el);
         }
@@ -430,44 +442,60 @@
 
       // Let these posts be retried after the helper comes back.
       for (const item of batch.reverse()) {
-        if (item.el?.isConnected) {
+        if (item.el?.isConnected && postHash(extractPost(item.el)) === item.hash) {
           item.el.setAttribute(STATE_ATTR, "queued");
           queue.unshift(item);
         }
       }
     } finally {
+      syncFindings();
       stats.analyzing = 0;
       stats.queued = queue.length;
       processing = false;
 
-      if (queue.length) {
+      if (started && queue.length) {
         setTimeout(drainQueue, stats.helperError ? 5000 : 90);
       }
     }
   }
 
-  function rememberFinding(result) {
-    const existing = recentFindings.findIndex((item) => item.id === result.id);
-    if (existing >= 0) recentFindings.splice(existing, 1);
-
-    recentFindings.unshift({
-      id: result.id,
-      risk: Number(result.risk || 0),
-      text: String(result.text || "").slice(0, 360),
-      signals: result.signals || {},
-      primary_label: result.primary_label || "ai_slop",
-    });
-
-    if (recentFindings.length > 20) recentFindings.length = 20;
+  function syncFindings() {
+    recentFindings.length = 0;
+    stats.flagged = 0;
+    stats.uncertain = 0;
+    for (const [id, result] of resultsById) {
+      if (!result.el?.isConnected || postHash(extractPost(result.el)) !== result.textHash) {
+        removeTape(result.el);
+        resultsById.delete(id);
+        continue;
+      }
+      if (result.decision === "uncertain") {
+        stats.uncertain += 1;
+      } else if (Number(result.risk || 0) >= threshold) {
+        stats.flagged += 1;
+        recentFindings.unshift({
+          id, risk: result.risk, text: result.text.slice(0, 360),
+          signals: result.signals || {}, primary_label: result.primary_label,
+        });
+      }
+    }
+    recentFindings.length = Math.min(recentFindings.length, 20);
   }
 
   function markSlop(el, result) {
     if (!(el instanceof HTMLElement) || !el.isConnected) return;
     removeTape(el);
+    const box = visiblePostBox(el);
+    const tapeHost = box?.el || el;
+    const scope = tapeHost.getRootNode();
+    if (scope instanceof ShadowRoot && !scope.querySelector("#slop-finder-styles")) {
+      const style = document.getElementById("slop-finder-styles");
+      if (style) scope.appendChild(style.cloneNode(true));
+    }
 
-    if (getComputedStyle(el).position === "static") {
-      el.dataset.slopFinderPositionPatched = "1";
-      el.style.position = "relative";
+    if (getComputedStyle(tapeHost).position === "static") {
+      tapeHost.dataset.slopFinderPositionPatched = "1";
+      tapeHost.style.position = "relative";
     }
 
     el.classList.add("slop-finder-detected");
@@ -476,7 +504,7 @@
     overlay.className = TAPE_CLASS;
     overlay.setAttribute("aria-hidden", "true");
 
-    const confidence = Math.round(Number(result.risk || 0) * 100);
+    const styleScore = Math.round(Number(result.risk || 0) * 100);
     const strongest = Object.entries(result.signals || {})
       .filter(([name]) => name !== "ai_slop")
       .sort((a, b) => b[1] - a[1])[0]?.[0] || "synthetic style";
@@ -492,46 +520,56 @@
       listicle: "LISTICLE",
       cta_bait: "ENGAGEMENT BAIT",
       buzzword_hype: "HYPE COPY",
-      regular_cadence: "ROBOTIC CADENCE",
+      regular_cadence: "REGULAR CADENCE",
+      conditional_template: "REPEATED CONDITIONALS",
+      contrast_template: "REPEATED CONTRASTS",
+      dash_style: "DASH PATTERN",
     }[strongest] || "AI SLOP";
 
     overlay.innerHTML = `
       <div class="slop-finder-dim"></div>
       <div class="slop-finder-tape slop-finder-tape-main">
-        <span>AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${confidence}%&nbsp;&nbsp;·&nbsp;&nbsp;${friendly}&nbsp;&nbsp;·&nbsp;&nbsp;AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${confidence}%</span>
+        <span>AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${styleScore}/100&nbsp;&nbsp;·&nbsp;&nbsp;${friendly}&nbsp;&nbsp;·&nbsp;&nbsp;AI SLOP&nbsp;&nbsp;·&nbsp;&nbsp;${styleScore}/100</span>
       </div>
       <div class="slop-finder-tape slop-finder-tape-accent">
         <span>SLOP FINDER&nbsp;&nbsp;·&nbsp;&nbsp;STYLE MATCH — NOT PROOF OF AUTHORSHIP</span>
       </div>
     `;
 
-    el.appendChild(overlay);
+    tapeHost.appendChild(overlay);
   }
 
   function removeTape(el) {
     if (!(el instanceof HTMLElement)) return;
-    el.querySelectorAll(`:scope > .${TAPE_CLASS}`).forEach((node) => node.remove());
+    extraction.query(el, `.${TAPE_CLASS}`).forEach((node) => node.remove());
     el.classList.remove("slop-finder-detected");
   }
 
   function refreshExistingMarks() {
     for (const [id, result] of resultsById.entries()) {
-      const el = document.querySelector(`[${POST_ATTR}="${CSS.escape(id)}"]`);
-      if (!el) continue;
+      const el = result.el;
+      if (!el?.isConnected || postHash(extractPost(el)) !== result.textHash) {
+        removeTape(el);
+        resultsById.delete(id);
+        continue;
+      }
 
-      if (Number(result.risk || 0) >= threshold) {
+      if (result.decision !== "uncertain" && Number(result.risk || 0) >= threshold) {
         markSlop(el, result);
       } else {
         removeTape(el);
       }
     }
+    syncFindings();
   }
 
   function clearVisuals() {
-    document.querySelectorAll(`.${TAPE_CLASS}`).forEach((node) => node.remove());
-    document.querySelectorAll(".slop-finder-detected").forEach((node) => node.classList.remove("slop-finder-detected"));
+    extraction.query(document, `.${TAPE_CLASS}`).forEach((node) => node.remove());
+    extraction.query(document, ".slop-finder-detected").forEach((node) => node.classList.remove("slop-finder-detected"));
+    resultsById.clear();
     recentFindings.length = 0;
     stats.flagged = 0;
+    stats.uncertain = 0;
   }
 
   function injectStyles() {
@@ -660,7 +698,7 @@
     document.documentElement.appendChild(style);
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const onRuntimeMessage = (message, _sender, sendResponse) => {
     if (message?.type === "LAYA_PING") {
       sendResponse({ ok: true, site: stats.site, supported: stats.supported });
       return;
@@ -692,11 +730,13 @@
     }
 
     if (message?.type === "LAYA_RESCAN") {
+      for (const { el } of stableRoots()) el.removeAttribute(STATE_ATTR);
       scheduleScan(0);
       sendResponse({ ok: true });
       return;
     }
-  });
+  };
+  chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
   let observer = null;
   let heartbeatTimer = null;
@@ -706,14 +746,14 @@
   const onResize = () => scheduleScan(120);
 
   function resetStaleDomState() {
-    document.querySelectorAll(`[${STATE_ATTR}], [data-slop-finder-state]`).forEach((el) => {
+    extraction.query(document, `[${STATE_ATTR}], [data-slop-finder-state]`).forEach((el) => {
       el.removeAttribute(STATE_ATTR);
       el.removeAttribute(HASH_ATTR);
       el.removeAttribute("data-slop-finder-state");
       el.removeAttribute("data-slop-finder-hash");
     });
-    document.querySelectorAll(`.${TAPE_CLASS}`).forEach((node) => node.remove());
-    document.querySelectorAll(".slop-finder-detected").forEach((node) => {
+    extraction.query(document, `.${TAPE_CLASS}`).forEach((node) => node.remove());
+    extraction.query(document, ".slop-finder-detected").forEach((node) => {
       node.classList.remove("slop-finder-detected");
     });
   }
@@ -725,6 +765,8 @@
     heartbeatTimer = null;
     observer?.disconnect();
     observer = null;
+    chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+    chrome.storage.onChanged.removeListener(onStorageChanged);
     removeEventListener("scroll", onScroll);
     removeEventListener("resize", onResize);
     started = false;

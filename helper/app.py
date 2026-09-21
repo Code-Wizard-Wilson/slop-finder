@@ -3,14 +3,17 @@ from __future__ import annotations
 import os
 import threading
 import time
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from scoring import combine_slop_score, slop_pattern_score, stylometric_features
+from scoring import combine_slop_score, slop_pattern_score, stylometric_features, decision_for
+from inference import predict_signals
 
+SCORING_VERSION = "0.5.0"
+SCORING_REVISION = "0.5.2"
 MODEL_NAME = os.getenv("LAYA_MODEL", "multilingual").strip().lower()
 MLX_CACHE_LIMIT_MB = max(0, int(os.getenv("MLX_CACHE_LIMIT_MB", "512")))
 MLX_CACHE_LIMIT_BYTES = MLX_CACHE_LIMIT_MB * 1024 * 1024
@@ -26,7 +29,7 @@ if MODEL_NAME not in MODEL_SPECS:
         f"Choose one of: {', '.join(MODEL_SPECS)}"
     )
 
-app = FastAPI(title="Slop Finder Local Helper", version="0.4.2")
+app = FastAPI(title="Slop Finder Local Helper", version="0.5.2")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
@@ -39,6 +42,7 @@ _agent = None
 _mx = None
 _model_error: str | None = None
 _model_lock = threading.Lock()
+_inference_lock = threading.Lock()
 
 
 class Block(BaseModel):
@@ -46,6 +50,8 @@ class Block(BaseModel):
     text: str = Field(min_length=1, max_length=6000)
     tag: str | None = None
     site: str | None = None
+    text_scope: Literal["post", "title_only"] = "post"
+    truncated: bool = False
 
 
 class AnalyzeRequest(BaseModel):
@@ -56,44 +62,27 @@ class AnalyzeRequest(BaseModel):
 
 def questions() -> dict[str, Any]:
     return {
-        "genericity": {
+        "low_information": {
             "type": "noul",
-            "instructions": (
-                "Is the post unusually generic, vague, platitudinous, or low in concrete personal details, "
-                "specific evidence, examples, names, numbers, or firsthand information?"
-            ),
+            "instructions": "Does this text mostly consist of vague advice, empty motivational slogans, or generic promotional filler?",
+            "criteria": {
+                "false": "Concrete information, personal experience, an actual question, or a specific opinion.",
+                "true": "Mostly generic slogans or inflated empty prose with no useful substance.",
+            },
         },
         "templated_style": {
             "type": "noul",
-            "instructions": (
-                "Does the post use a conspicuously formulaic social-media template or LLM-like rhetorical "
-                "structure, such as staged hooks, symmetrical bullet points, repeated sentence patterns, "
-                "contrived contrasts, or predictable conclusion formulas?"
-            ),
-        },
-        "synthetic_tone": {
-            "type": "noul",
-            "instructions": (
-                "Does the prose have an unnaturally polished, homogenized, synthetic, or assistant-like tone "
-                "that reads more like generated copy than an individual person's natural voice?"
-            ),
+            "instructions": "Does the text use repeated motivational slogans, generic business language, or formulaic promotional rhetoric?",
+            "criteria": {
+                "false": "Natural conversation, specific information, a help request, or a factual explanation.",
+                "true": "Boilerplate promotional or motivational copy, repetitive slogans, generic business filler.",
+            },
         },
         "engagement_bait": {
             "type": "noul",
-            "instructions": (
-                "Is the post mainly engineered to harvest reactions, comments, reposts, or clicks through "
-                "hooks, open loops, generic questions, forced controversy, or calls for engagement?"
-            ),
-        },
-        "low_information": {
-            "type": "noul",
-            "instructions": (
-                "Is there little substantive information relative to the amount of text, with filler, "
-                "restatement, broad claims, or obvious advice dominating the post?"
-            ),
+            "instructions": "Does this text use clickbait or engagement bait instead of offering useful content?",
         },
     }
-
 
 
 def get_agent():
@@ -155,22 +144,13 @@ def trim_mlx_cache_if_needed() -> None:
         _mx.clear_cache()
 
 
-def probability(answer: Any) -> float:
-    if not isinstance(answer, dict):
-        return 0.0
-
-    for key in ("noul", "probability", "confidence"):
-        value = answer.get(key)
-        if isinstance(value, (int, float)):
-            return max(0.0, min(1.0, float(value)))
-    return 0.0
-
-
 @app.get("/health")
 def health():
     return {
         "ok": True,
         "engine": "laya-mlx",
+        "scoring_version": SCORING_VERSION,
+        "scoring_revision": SCORING_REVISION,
         "mode": "ai-slop",
         "model": MODEL_NAME,
         "checkpoint": MODEL_SPECS[MODEL_NAME],
@@ -186,6 +166,8 @@ def memory():
     return {
         "ok": True,
         "engine": "laya-mlx",
+        "scoring_version": SCORING_VERSION,
+        "scoring_revision": SCORING_REVISION,
         "model": MODEL_NAME,
         **mlx_memory(),
     }
@@ -202,6 +184,8 @@ def warmup():
     return {
         "ok": True,
         "engine": "laya-mlx",
+        "scoring_version": SCORING_VERSION,
+        "scoring_revision": SCORING_REVISION,
         "mode": "ai-slop",
         "model": MODEL_NAME,
         "checkpoint": MODEL_SPECS[MODEL_NAME],
@@ -221,31 +205,21 @@ def analyze(payload: AnalyzeRequest):
     started = time.perf_counter()
 
     for block in payload.blocks:
-        state = {
-            "context": "social media post",
-            "site": block.site or "",
-            "page_title": payload.title[:300],
-            "page_url": payload.url[:1000],
-            "element_tag": block.tag or "",
-            "post_text": block.text.strip(),
-        }
-
         try:
-            raw = agent.predict(state, qs)
-            answers = raw.get("answers", raw)
+            with _inference_lock:
+                try:
+                    signals, window_count = predict_signals(agent, block.text.strip(), qs)
+                finally:
+                    trim_mlx_cache_if_needed()
         except Exception as exc:
-            results.append(
-                {
-                    "id": block.id,
-                    "text": block.text,
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "signals": {},
-                    "risk": 0.0,
-                }
-            )
+            results.append({
+                "id": block.id, "text": block.text,
+                "error": f"{type(exc).__name__}: {exc}",
+                "signals": {}, "risk": None,
+                "decision": "uncertain", "reasons": ["analysis_failed"],
+            })
             continue
 
-        signals = {name: probability(answers.get(name, {})) for name in qs}
         pattern_score = slop_pattern_score(block.text)
         structural = stylometric_features(block.text)
         signals["formula_patterns"] = round(pattern_score, 4)
@@ -253,6 +227,9 @@ def analyze(payload: AnalyzeRequest):
             if key != "specificity":
                 signals[key] = value
         risk = combine_slop_score(signals, pattern_score, block.text, structural)
+
+        decision, reasons = decision_for(block.text, signals, risk,
+            truncated=block.truncated, text_scope=block.text_scope)
 
         secondary = sorted(
             signals.items(),
@@ -270,15 +247,21 @@ def analyze(payload: AnalyzeRequest):
                 "signals": signals,
                 "primary_label": primary_label,
                 "risk": round(float(risk), 4),
+                "decision": decision,
+                "reasons": reasons,
+                "window_count": window_count,
+                "text_scope": block.text_scope,
+                "truncated": block.truncated,
             }
         )
 
-    results.sort(key=lambda item: item.get("risk", 0.0), reverse=True)
-    trim_mlx_cache_if_needed()
+    results.sort(key=lambda item: item.get("risk") or 0.0, reverse=True)
 
     return {
         "ok": True,
         "engine": "laya-mlx",
+        "scoring_version": SCORING_VERSION,
+        "scoring_revision": SCORING_REVISION,
         "mode": "ai-slop",
         "model": MODEL_NAME,
         "checkpoint": MODEL_SPECS[MODEL_NAME],

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "reported_grok",
+    "site": "x",
+    "label": "useful",
+    "text": "Grok 4.7 works extremely well with our Build harness\nX.ai/Build"
+  },
+  {
+    "id": "reported_grok_https",
+    "site": "x",
+    "label": "useful",
+    "text": "Grok 4.7 works extremely well with our Build harness\nhttps://x.ai/Build"
+  },
+  {
+    "id": "generic_product_opinion",
+    "site": "x",
+    "label": "useful",
+    "text": "The latest model works extremely well with our build harness and handles the integration tests better than the previous version."
+  },
+  {
+    "id": "russian_product_opinion",
+    "site": "x",
+    "label": "useful",
+    "text": "Новая модель хорошо работает с нашей системой сборки и лучше предыдущей версии справляется с тестами интеграции."
+  },
+  {
+    "id": "short_formula_cluster",
+    "site": "x",
+    "label": "slop",
+    "text": "Nobody tells you the truth about success. Unlock your potential. Adapt or get left behind. Save this post. Follow for more."
+  }
+]

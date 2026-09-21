@@ -10,13 +10,15 @@ const emptyState = $("emptyState");
 const detectedCount = $("detectedCount");
 const scannedCount = $("scannedCount");
 const flaggedCount = $("flaggedCount");
+const uncertainCount = $("uncertainCount");
 const queueCount = $("queueCount");
 const latencyValue = $("latencyValue");
 const scanState = $("scanState");
 const clearBtn = $("clearBtn");
 const rescanBtn = $("rescanBtn");
 
-const EXPECTED_SCANNER_VERSION = "0.4.1";
+const EXPECTED_SCANNER_VERSION = "0.5.2";
+const EXPECTED_SCORING_VERSION = "0.5.0";
 
 let pollTimer = null;
 let lastFindingsKey = "";
@@ -33,6 +35,9 @@ const LABELS = {
   cta_bait: "CTA bait",
   buzzword_hype: "Hype language",
   regular_cadence: "Regular cadence",
+  conditional_template: "Conditional templates",
+  contrast_template: "Contrast templates",
+  dash_style: "Dash pattern",
   ai_slop: "AI slop"
 };
 
@@ -58,7 +63,7 @@ async function forceInjectScanner() {
   const tab = await getTab();
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    files: ["content.js"]
+    files: ["extraction.js", "content.js"]
   });
 }
 
@@ -72,7 +77,7 @@ async function sendToTab(message, injectIfMissing = true) {
 
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["content.js"]
+      files: ["extraction.js", "content.js"]
     });
 
     return await chrome.tabs.sendMessage(tab.id, message);
@@ -84,6 +89,11 @@ async function checkHelper() {
     const response = await chrome.runtime.sendMessage({ type: "LAYA_HELPER_HEALTH" });
     if (!response?.ok) throw new Error(response?.error || "helper offline");
 
+    if (response.data?.scoring_version !== EXPECTED_SCORING_VERSION) {
+      helperStatus.className = "status bad";
+      helperStatus.textContent = "restart helper";
+      return false;
+    }
     helperStatus.className = "status ok";
     helperStatus.textContent = response.data?.loaded ? "Laya-MLX ready" : "helper ready";
     return true;
@@ -119,7 +129,7 @@ function renderFindings(findings = []) {
 
     const risk = document.createElement("span");
     risk.className = "risk";
-    risk.textContent = pct(item.risk);
+    risk.textContent = `${Math.round(Number(item.risk || 0) * 100)}/100`;
 
     top.append(label, risk);
 
@@ -167,6 +177,7 @@ async function refreshStatus() {
       detectedCount.textContent = "0";
       scannedCount.textContent = "0";
       flaggedCount.textContent = "0";
+      uncertainCount.textContent = "0";
       queueCount.textContent = "0";
       latencyValue.textContent = "—";
       renderFindings([]);
@@ -179,12 +190,16 @@ async function refreshStatus() {
     detectedCount.textContent = String(status.candidateRoots || status.foundRoots || 0);
     scannedCount.textContent = String(status.scanned || 0);
     flaggedCount.textContent = String(status.flagged || 0);
+    uncertainCount.textContent = String(status.uncertain || 0);
     queueCount.textContent = String((status.queued || 0) + (status.analyzing || 0));
     latencyValue.textContent = status.lastLatencyMs ? `${status.lastLatencyMs} ms` : "—";
 
     const scanAge = status.lastScanAt ? Date.now() - Number(status.lastScanAt) : Infinity;
 
-    if (status.helperError) {
+    if (status.scannerError) {
+      scanState.textContent = "scanner error";
+      setError(`Scanner: ${status.scannerError}`);
+    } else if (status.helperError) {
       scanState.textContent = "retrying";
       setError(`Local helper: ${status.helperError}`);
     } else if (status.analyzing) {
@@ -194,6 +209,13 @@ async function refreshStatus() {
     } else if (scanAge > 4500) {
       scanState.textContent = `scanner stalled · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
       await sendToTab({ type: "LAYA_RESCAN" }, false).catch(() => {});
+    } else if (!status.foundRoots && status.candidateRoots) {
+      scanState.textContent = "no eligible text";
+      const reasons = [];
+      if (status.skippedVisibility) reasons.push(`${status.skippedVisibility} outside view or hidden`);
+      if (status.skippedMissingText) reasons.push(`${status.skippedMissingText} without readable post text`);
+      if (status.skippedShortText) reasons.push(`${status.skippedShortText} with too little text`);
+      setError(`Found ${status.candidateRoots} containers; ${reasons.join("; ") || "no posts ready for analysis"}.`);
     } else {
       scanState.textContent = `watching · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
     }
@@ -208,7 +230,7 @@ async function refreshStatus() {
 }
 
 threshold.addEventListener("input", () => {
-  thresholdValue.textContent = `${threshold.value}%`;
+  thresholdValue.textContent = `${threshold.value}/100`;
 });
 
 threshold.addEventListener("change", async () => {
@@ -235,7 +257,7 @@ chrome.storage.local.get({ slopThreshold: 65, calibrationVersion: 0 }, async ({ 
     await chrome.storage.local.set({ slopThreshold: 65, calibrationVersion: 4 });
   }
   threshold.value = String(slopThreshold);
-  thresholdValue.textContent = `${slopThreshold}%`;
+  thresholdValue.textContent = `${slopThreshold}/100`;
 });
 
 async function start() {

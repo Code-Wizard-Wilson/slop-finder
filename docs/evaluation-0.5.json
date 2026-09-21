@@ -1,0 +1,1142 @@
+{
+  "date": "2026-09-21",
+  "checkpoint": "aac6fef/laya-multilingual-mlx",
+  "runtime": "laya-mlx 0.1.0, float16, Apple Silicon",
+  "threshold": 0.65,
+  "method": "38 hand-authored English/Russian examples. 24 development cases; 14 held-out cases evaluated after fixing prompts and weights. Labels concern slop style, not authorship. Baseline is the local pre-0.5 version, including the previous 0.4.3 edits.",
+  "baseline_source_sha256": {
+    "slop_baseline_app.py": "8c5bbbef56b5593d00af8adaf7928abceaf584e2959e44696dd2ee0b8b4aa0f4",
+    "slop_baseline_scoring.py": "ce7422b50a299dc86608ac737118093e46bb87f4fc36b72efed4bf26e3cb7f66"
+  },
+  "cases": [
+    {
+      "id": "reddit_debug",
+      "label": "useful",
+      "before_risk": 0.0358,
+      "after_risk": 0.0514,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0002,
+        "templated_style": 0.0745,
+        "synthetic_tone": 0.0048,
+        "engagement_bait": 0.0063,
+        "low_information": 0.0059
+      },
+      "after_signals": {
+        "low_information": 0.0244,
+        "templated_style": 0.1335,
+        "engagement_bait": 0.0008,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.3133,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_help",
+      "label": "useful",
+      "before_risk": 0.0404,
+      "after_risk": 0.2852,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0084,
+        "templated_style": 0.0485,
+        "synthetic_tone": 0.0364,
+        "engagement_bait": 0.0217,
+        "low_information": 0.0657
+      },
+      "after_signals": {
+        "low_information": 0.4197,
+        "templated_style": 0.2393,
+        "engagement_bait": 0.0032,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.2221,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_recipe",
+      "label": "useful",
+      "before_risk": 0.5919,
+      "after_risk": 0.5697,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0118,
+        "templated_style": 0.0739,
+        "synthetic_tone": 0.0405,
+        "engagement_bait": 0.0198,
+        "low_information": 0.2211
+      },
+      "after_signals": {
+        "low_information": 0.6878,
+        "templated_style": 0.47829999999999995,
+        "engagement_bait": 0.0041,
+        "formula_patterns": 0.535,
+        "repetition": 0.0,
+        "listicle": 0.8,
+        "cta_bait": 0.22,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.3872,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_conditional",
+      "label": "useful",
+      "before_risk": 0.0542,
+      "after_risk": 0.0886,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0184,
+        "templated_style": 0.0254,
+        "synthetic_tone": 0.0051,
+        "engagement_bait": 0.0021,
+        "low_information": 0.0068
+      },
+      "after_signals": {
+        "low_information": 0.0555,
+        "templated_style": 0.0763,
+        "engagement_bait": 0.0011,
+        "formula_patterns": 0.0,
+        "repetition": 0.3727,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.9125,
+        "conditional_template": 0.6,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_quotes",
+      "label": "useful",
+      "before_risk": 0.0431,
+      "after_risk": 0.2879,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "conflicting_signals"
+      ],
+      "before_signals": {
+        "genericity": 0.0036,
+        "templated_style": 0.0949,
+        "synthetic_tone": 0.0489,
+        "engagement_bait": 0.1222,
+        "low_information": 0.0192
+      },
+      "after_signals": {
+        "low_information": 0.1432,
+        "templated_style": 0.7147,
+        "engagement_bait": 0.3388,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_mockery",
+      "label": "useful",
+      "before_risk": 0.0447,
+      "after_risk": 0.4783,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0282,
+        "templated_style": 0.0144,
+        "synthetic_tone": 0.0594,
+        "engagement_bait": 0.0243,
+        "low_information": 0.0147
+      },
+      "after_signals": {
+        "low_information": 0.5872,
+        "templated_style": 0.4425,
+        "engagement_bait": 0.7603,
+        "formula_patterns": 0.15,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.39,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_opinion",
+      "label": "useful",
+      "before_risk": 0.0399,
+      "after_risk": 0.0628,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0006,
+        "templated_style": 0.0489,
+        "synthetic_tone": 0.0644,
+        "engagement_bait": 0.0141,
+        "low_information": 0.0185
+      },
+      "after_signals": {
+        "low_information": 0.024,
+        "templated_style": 0.1632,
+        "engagement_bait": 0.0021,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.1814,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_story",
+      "label": "useful",
+      "before_risk": 0.0395,
+      "after_risk": 0.1046,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0155,
+        "templated_style": 0.0549,
+        "synthetic_tone": 0.0664,
+        "engagement_bait": 0.0202,
+        "low_information": 0.0032
+      },
+      "after_signals": {
+        "low_information": 0.04649999999999999,
+        "templated_style": 0.2907,
+        "engagement_bait": 0.011200000000000002,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.101,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "ru_debug",
+      "label": "useful",
+      "before_risk": 0.0416,
+      "after_risk": 0.1861,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0019,
+        "templated_style": 0.0326,
+        "synthetic_tone": 0.0042,
+        "engagement_bait": 0.0056,
+        "low_information": 0.0122
+      },
+      "after_signals": {
+        "low_information": 0.31770000000000004,
+        "templated_style": 0.09469999999999999,
+        "engagement_bait": 0.0006,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.1962,
+        "conditional_template": 0.6,
+        "contrast_template": 0.18,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "ru_story",
+      "label": "useful",
+      "before_risk": 0.0358,
+      "after_risk": 0.2187,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0034,
+        "templated_style": 0.0176,
+        "synthetic_tone": 0.0508,
+        "engagement_bait": 0.0151,
+        "low_information": 0.0122
+      },
+      "after_signals": {
+        "low_information": 0.1463,
+        "templated_style": 0.4037,
+        "engagement_bait": 0.0004,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "linkedin_release",
+      "label": "useful",
+      "before_risk": 0.0323,
+      "after_risk": 0.0061,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0,
+        "templated_style": 0.0115,
+        "synthetic_tone": 0.0024,
+        "engagement_bait": 0.0005,
+        "low_information": 0.0002
+      },
+      "after_signals": {
+        "low_information": 0.0026,
+        "templated_style": 0.0179,
+        "engagement_bait": 0.0038,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0256,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "x_short",
+      "label": "useful",
+      "before_risk": 0.0394,
+      "after_risk": 0.39,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "too_short"
+      ],
+      "before_signals": {
+        "genericity": 0.0166,
+        "templated_style": 0.1113,
+        "synthetic_tone": 0.0259,
+        "engagement_bait": 0.0186,
+        "low_information": 0.0315
+      },
+      "after_signals": {
+        "low_information": 0.3596,
+        "templated_style": 0.9037,
+        "engagement_bait": 0.12439999999999998,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "x_news",
+      "label": "useful",
+      "before_risk": 0.0372,
+      "after_risk": 0.0056,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0008,
+        "templated_style": 0.0532,
+        "synthetic_tone": 0.0458,
+        "engagement_bait": 0.0138,
+        "low_information": 0.0075
+      },
+      "after_signals": {
+        "low_information": 0.007,
+        "templated_style": 0.0055,
+        "engagement_bait": 0.009,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_promo",
+      "label": "slop",
+      "before_risk": 0.8331,
+      "after_risk": 0.6856,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0093,
+        "templated_style": 0.2163,
+        "synthetic_tone": 0.1984,
+        "engagement_bait": 0.1371,
+        "low_information": 0.3751
+      },
+      "after_signals": {
+        "low_information": 0.722,
+        "templated_style": 0.5863,
+        "engagement_bait": 0.6215,
+        "formula_patterns": 1.0,
+        "repetition": 0.093,
+        "listicle": 0.0,
+        "cta_bait": 0.66,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.1507,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "linkedin_formula",
+      "label": "slop",
+      "before_risk": 0.1352,
+      "after_risk": 0.6992,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0092,
+        "templated_style": 0.0522,
+        "synthetic_tone": 0.0428,
+        "engagement_bait": 0.0111,
+        "low_information": 0.0373
+      },
+      "after_signals": {
+        "low_information": 0.8087,
+        "templated_style": 0.6756,
+        "engagement_bait": 0.615,
+        "formula_patterns": 0.34,
+        "repetition": 0.125,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.4818,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_generic",
+      "label": "slop",
+      "before_risk": 0.042,
+      "after_risk": 0.7044,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0018,
+        "templated_style": 0.0864,
+        "synthetic_tone": 0.0485,
+        "engagement_bait": 0.0455,
+        "low_information": 0.0596
+      },
+      "after_signals": {
+        "low_information": 0.8584,
+        "templated_style": 0.7006,
+        "engagement_bait": 0.0229,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "ru_promo",
+      "label": "slop",
+      "before_risk": 0.6469,
+      "after_risk": 0.8468,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0072,
+        "templated_style": 0.1527,
+        "synthetic_tone": 0.2768,
+        "engagement_bait": 0.2183,
+        "low_information": 0.1371
+      },
+      "after_signals": {
+        "low_information": 0.8595,
+        "templated_style": 0.9165,
+        "engagement_bait": 0.0522,
+        "formula_patterns": 0.48,
+        "repetition": 0.1702,
+        "listicle": 0.0,
+        "cta_bait": 0.44,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.359,
+        "conditional_template": 0.6,
+        "contrast_template": 0.36,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "ru_generic",
+      "label": "slop",
+      "before_risk": 0.0472,
+      "after_risk": 0.8307,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0047,
+        "templated_style": 0.1572,
+        "synthetic_tone": 0.0926,
+        "engagement_bait": 0.0564,
+        "low_information": 0.0301
+      },
+      "after_signals": {
+        "low_information": 0.9093,
+        "templated_style": 0.937,
+        "engagement_bait": 0.004,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "linkedin_fake_specificity",
+      "label": "slop",
+      "before_risk": 0.9036,
+      "after_risk": 0.7513,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.2607,
+        "templated_style": 0.3218,
+        "synthetic_tone": 0.3537,
+        "engagement_bait": 0.1697,
+        "low_information": 0.5693
+      },
+      "after_signals": {
+        "low_information": 0.8342,
+        "templated_style": 0.6829,
+        "engagement_bait": 0.7395,
+        "formula_patterns": 0.72,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.44,
+        "buzzword_hype": 0.39,
+        "regular_cadence": 0.3928,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "x_bait",
+      "label": "slop",
+      "before_risk": 0.7952,
+      "after_risk": 0.7429,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0019,
+        "templated_style": 0.1699,
+        "synthetic_tone": 0.2373,
+        "engagement_bait": 0.0998,
+        "low_information": 0.3181
+      },
+      "after_signals": {
+        "low_information": 0.7624,
+        "templated_style": 0.6967,
+        "engagement_bait": 0.485,
+        "formula_patterns": 0.87,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.66,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.2607,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_no_cta",
+      "label": "slop",
+      "before_risk": 0.1028,
+      "after_risk": 0.7232,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0023,
+        "templated_style": 0.0443,
+        "synthetic_tone": 0.0294,
+        "engagement_bait": 0.0133,
+        "low_information": 0.0158
+      },
+      "after_signals": {
+        "low_information": 0.7498,
+        "templated_style": 0.7958,
+        "engagement_bait": 0.0167,
+        "formula_patterns": 0.28,
+        "repetition": 0.1026,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.3143,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_fact_list",
+      "label": "useful",
+      "before_risk": 0.0634,
+      "after_risk": 0.4418,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0029,
+        "templated_style": 0.0293,
+        "synthetic_tone": 0.0139,
+        "engagement_bait": 0.016,
+        "low_information": 0.0307
+      },
+      "after_signals": {
+        "low_information": 0.5234,
+        "templated_style": 0.4388,
+        "engagement_bait": 0.0,
+        "formula_patterns": 0.105,
+        "repetition": 0.0976,
+        "listicle": 0.66,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.7127,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_media_title",
+      "label": "uncertain",
+      "before_risk": 0.0472,
+      "after_risk": 0.1475,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "title_only",
+        "too_short"
+      ],
+      "before_signals": {
+        "genericity": 0.0022,
+        "templated_style": 0.0756,
+        "synthetic_tone": 0.0975,
+        "engagement_bait": 0.0523,
+        "low_information": 0.0068
+      },
+      "after_signals": {
+        "low_information": 0.0532,
+        "templated_style": 0.42,
+        "engagement_bait": 0.0168,
+        "formula_patterns": 0.13,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "reddit_truncated",
+      "label": "uncertain",
+      "before_risk": 0.8798,
+      "after_risk": 0.5301,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "incomplete_text"
+      ],
+      "before_signals": {
+        "genericity": 0.2483,
+        "templated_style": 0.4809,
+        "synthetic_tone": 0.2632,
+        "engagement_bait": 0.2687,
+        "low_information": 0.2543
+      },
+      "after_signals": {
+        "low_information": 0.4952,
+        "templated_style": 0.5232,
+        "engagement_bait": 0.0588,
+        "formula_patterns": 0.72,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.44,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.7282,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_measurement",
+      "label": "useful",
+      "before_risk": 0.0421,
+      "after_risk": 0.0977,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0003,
+        "templated_style": 0.0093,
+        "synthetic_tone": 0.0165,
+        "engagement_bait": 0.0067,
+        "low_information": 0.0037
+      },
+      "after_signals": {
+        "low_information": 0.2798,
+        "templated_style": 0.0381,
+        "engagement_bait": 0.0,
+        "formula_patterns": 0.0,
+        "repetition": 0.0952,
+        "listicle": 0.16,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.6794,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_gardening",
+      "label": "useful",
+      "before_risk": 0.0391,
+      "after_risk": 0.1944,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0006,
+        "templated_style": 0.041,
+        "synthetic_tone": 0.0177,
+        "engagement_bait": 0.0118,
+        "low_information": 0.006
+      },
+      "after_signals": {
+        "low_information": 0.169,
+        "templated_style": 0.2761,
+        "engagement_bait": 0.0,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.7304,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_polished",
+      "label": "useful",
+      "before_risk": 0.0325,
+      "after_risk": 0.0,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0,
+        "templated_style": 0.0026,
+        "synthetic_tone": 0.0016,
+        "engagement_bait": 0.0006,
+        "low_information": 0.0008
+      },
+      "after_signals": {
+        "low_information": 0.0,
+        "templated_style": 0.0,
+        "engagement_bait": 0.0005,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_ad",
+      "label": "useful",
+      "before_risk": 0.0323,
+      "after_risk": 0.0656,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0063,
+        "templated_style": 0.0221,
+        "synthetic_tone": 0.0215,
+        "engagement_bait": 0.0106,
+        "low_information": 0.004
+      },
+      "after_signals": {
+        "low_information": 0.0354,
+        "templated_style": 0.1502,
+        "engagement_bait": 0.0,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.3669,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_ru_help",
+      "label": "useful",
+      "before_risk": 0.0381,
+      "after_risk": 0.1133,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "conflicting_signals"
+      ],
+      "before_signals": {
+        "genericity": 0.0007,
+        "templated_style": 0.0088,
+        "synthetic_tone": 0.0051,
+        "engagement_bait": 0.0044,
+        "low_information": 0.0022
+      },
+      "after_signals": {
+        "low_information": 0.6261,
+        "templated_style": 0.0226,
+        "engagement_bait": 0.0,
+        "formula_patterns": 0.0,
+        "repetition": 0.125,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.6153,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_ru_list",
+      "label": "useful",
+      "before_risk": 0.033,
+      "after_risk": 0.1197,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0014,
+        "templated_style": 0.0089,
+        "synthetic_tone": 0.0045,
+        "engagement_bait": 0.0019,
+        "low_information": 0.0037
+      },
+      "after_signals": {
+        "low_information": 0.4618,
+        "templated_style": 0.0383,
+        "engagement_bait": 0.0028,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_satire",
+      "label": "useful",
+      "before_risk": 0.0513,
+      "after_risk": 0.4823,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0107,
+        "templated_style": 0.0306,
+        "synthetic_tone": 0.0772,
+        "engagement_bait": 0.0994,
+        "low_information": 0.0081
+      },
+      "after_signals": {
+        "low_information": 0.5879,
+        "templated_style": 0.4498,
+        "engagement_bait": 0.0629,
+        "formula_patterns": 0.0,
+        "repetition": 0.0976,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.39,
+        "regular_cadence": 1.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_quote",
+      "label": "useful",
+      "before_risk": 0.0361,
+      "after_risk": 0.498,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0189,
+        "templated_style": 0.0144,
+        "synthetic_tone": 0.0216,
+        "engagement_bait": 0.0252,
+        "low_information": 0.0136
+      },
+      "after_signals": {
+        "low_information": 0.5739,
+        "templated_style": 0.5336,
+        "engagement_bait": 0.0102,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.1003,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_empty_business",
+      "label": "slop",
+      "before_risk": 0.0412,
+      "after_risk": 0.426,
+      "after_decision": "not_flagged",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0032,
+        "templated_style": 0.0871,
+        "synthetic_tone": 0.0395,
+        "engagement_bait": 0.0549,
+        "low_information": 0.0347
+      },
+      "after_signals": {
+        "low_information": 0.465,
+        "templated_style": 0.4673,
+        "engagement_bait": 0.0051,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_empty_advice",
+      "label": "slop",
+      "before_risk": 0.1162,
+      "after_risk": 0.9002,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.1188,
+        "templated_style": 0.2265,
+        "synthetic_tone": 0.4488,
+        "engagement_bait": 0.1059,
+        "low_information": 0.1734
+      },
+      "after_signals": {
+        "low_information": 0.9909999999999999,
+        "templated_style": 0.9739,
+        "engagement_bait": 0.9755,
+        "formula_patterns": 0.16,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_ru_filler",
+      "label": "slop",
+      "before_risk": 0.0522,
+      "after_risk": 0.7359,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.028,
+        "templated_style": 0.104,
+        "synthetic_tone": 0.1994,
+        "engagement_bait": 0.0598,
+        "low_information": 0.0438
+      },
+      "after_signals": {
+        "low_information": 0.8107,
+        "templated_style": 0.8246,
+        "engagement_bait": 0.0561,
+        "formula_patterns": 0.0,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_bait",
+      "label": "slop",
+      "before_risk": 0.7977,
+      "after_risk": 0.8212,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.222,
+        "templated_style": 0.1727,
+        "synthetic_tone": 0.4157,
+        "engagement_bait": 0.1093,
+        "low_information": 0.1036
+      },
+      "after_signals": {
+        "low_information": 0.7521,
+        "templated_style": 0.9313,
+        "engagement_bait": 0.7094,
+        "formula_patterns": 0.68,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.44,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.1213,
+        "conditional_template": 0.0,
+        "contrast_template": 0.18,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_ru_bait",
+      "label": "slop",
+      "before_risk": 0.2284,
+      "after_risk": 0.7838,
+      "after_decision": "slop",
+      "after_reasons": [],
+      "before_signals": {
+        "genericity": 0.0015,
+        "templated_style": 0.1045,
+        "synthetic_tone": 0.1834,
+        "engagement_bait": 0.0872,
+        "low_information": 0.224
+      },
+      "after_signals": {
+        "low_information": 0.8352,
+        "templated_style": 0.809,
+        "engagement_bait": 0.0278,
+        "formula_patterns": 0.3,
+        "repetition": 0.1053,
+        "listicle": 0.0,
+        "cta_bait": 0.44,
+        "buzzword_hype": 0.13,
+        "regular_cadence": 0.602,
+        "conditional_template": 0.35,
+        "contrast_template": 0.36,
+        "dash_style": 0.0
+      }
+    },
+    {
+      "id": "holdout_image",
+      "label": "uncertain",
+      "before_risk": 0.0537,
+      "after_risk": 0.5445,
+      "after_decision": "uncertain",
+      "after_reasons": [
+        "title_only"
+      ],
+      "before_signals": {
+        "genericity": 0.003,
+        "templated_style": 0.097,
+        "synthetic_tone": 0.1302,
+        "engagement_bait": 0.0711,
+        "low_information": 0.0336
+      },
+      "after_signals": {
+        "low_information": 0.4018,
+        "templated_style": 0.8582,
+        "engagement_bait": 0.0936,
+        "formula_patterns": 0.16,
+        "repetition": 0.0,
+        "listicle": 0.0,
+        "cta_bait": 0.0,
+        "buzzword_hype": 0.0,
+        "regular_cadence": 0.0,
+        "conditional_template": 0.0,
+        "contrast_template": 0.0,
+        "dash_style": 0.0
+      }
+    }
+  ],
+  "before": {
+    "true_positives": 4,
+    "false_positives": 1,
+    "false_negatives": 9,
+    "total_slop": 13,
+    "total": 38
+  },
+  "after": {
+    "true_positives": 12,
+    "false_positives": 0,
+    "false_negatives": 1,
+    "total_slop": 13,
+    "total": 38
+  }
+}

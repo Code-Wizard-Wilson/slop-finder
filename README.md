@@ -2,9 +2,9 @@
 
 **Automatic local AI-slop style detection for X, LinkedIn, and Reddit.**
 
-Slop Finder is a Chromium extension backed by a local [Laya-MLX](https://github.com/mizorewww/laya-mlx) helper. It watches social feeds as you scroll, scores post-writing style locally, and marks high-confidence matches with an animated tape overlay.
+Slop Finder is a Chromium extension backed by a local [Laya-MLX](https://github.com/mizorewww/laya-mlx) helper. It watches social feeds as you scroll, scores post-writing style locally, and marks strong style matches with an animated tape overlay.
 
-> The score is a **style-match confidence**, not proof that AI authored a post. Text-only AI authorship detection is inherently uncertain, so Slop Finder is intentionally calibrated for precision over recall.
+> The score is a **heuristic style-match score**, not proof that AI authored a post. Text-only AI authorship detection is inherently uncertain, so Slop Finder is designed to abstain when context is insufficient.
 
 ## What it does
 
@@ -17,21 +17,28 @@ Slop Finder is a Chromium extension backed by a local [Laya-MLX](https://github.
 - Adds an animated "AI SLOP" tape only when the score crosses the configured threshold.
 - Side panel shows scan counts, queue state, latency, and recent matches.
 
-## Detection signals
+## Detection logic
 
-Laya-MLX scores several independent dimensions:
+Laya-MLX assesses **low information content** and **formulaic rhetoric** using
+explicit criteria. Both must support the result. Engagement bait is also shown
+as a diagnostic signal.
 
-- synthetic tone
-- templated style
-- low information density
-- genericity
-- engagement bait
+Lexical formulas, repetition, repeated English/Russian conditionals and contrasts
+provide a capped supporting contribution. Repeated long dashes only support
+already agreeing signals. Lists, polished writing, or a single dash do not
+independently convict a post. Quotes and code are excluded from these lexical rules.
 
-Slop Finder also has a deliberately narrow deterministic pattern layer for recognizable mass-produced social-copy formulas.
+Scores are **heuristic points out of 100**, not probabilities. The default marking
+threshold is **65/100**. Short, title-only, truncated, conflicting, or failed
+analyses remain uncertain and are not taped, even if the threshold is lowered.
 
-The final score requires agreement between multiple signals. A short post cannot get a high score merely because one classifier thinks it sounds polished or synthetic.
+## Reddit support
 
-Default threshold: **65%**.
+- Modern Reddit (`shreddit-post`), the redesign's post containers, and old.reddit.com.
+- Title and selftext extraction without comments, vote counts, usernames, or crosspost text.
+- Re-analysis when selftext expands or a feed node changes.
+- Open shadow-root traversal and tape styles.
+- Title-only link/image posts remain uncertain. Images and comments are not classified.
 
 ## Requirements
 
@@ -101,7 +108,7 @@ X / LinkedIn / Reddit DOM
           v
 Chromium content script
   - finds post containers
-  - extracts authored text
+  - extraction.js separates authored text
   - watches DOM mutations
           |
           v
@@ -114,7 +121,7 @@ extension service worker
 Laya-MLX
   - semantic style dimensions
           +
-research-guided hybrid scoring layer
+semantic + capped structural scoring layer
           |
           v
 animated tape + side panel
@@ -122,37 +129,16 @@ animated tape + side panel
 
 The extension analyzes the DOM already rendered in your browser. It does not operate a remote crawler and does not bypass site authentication.
 
-## Accuracy philosophy
+## Accuracy and evaluation
 
-Slop Finder optimizes for **fewer false positives**.
+The detector aims to reduce false positives without relying on a phrase blacklist.
+It scores the complete supplied text in tokenizer-sized windows instead of silently
+losing the end of longer posts. Multiple tabs share serialized model inference.
 
-The scoring layer intentionally:
-
-- downweights one-dimensional signals;
-- requires agreement between synthetic tone and templated structure;
-- caps scores for very short posts without explicit formula markers;
-- boosts only narrow, recognizable slop-copy patterns;
-- uses a 65% default threshold after structural + semantic evidence are combined.
-
-This means some actual AI-written posts will not be flagged. That is intentional: writing style alone cannot reliably establish authorship.
-
-## Research basis
-
-Slop Finder intentionally does **not** treat one style classifier as ground truth. Research on machine-generated-text detection shows that short social-media posts are a particularly difficult setting and that real-world detectors can produce substantial false positives.
-
-The current design is informed by:
-
-- **MultiSocial (ACL 2025)** — a 472k-text multilingual benchmark specifically for social-media machine-text detection. In its benchmark, Fast-DetectGPT and Binoculars were strong zero-shot baselines, while domain-fine-tuned detectors performed especially well. https://aclanthology.org/2025.acl-long.36/
-- **When Detection Fails (ACL 2025)** — shows why short, informal social-media text and fine-tuned generators make authorship detection substantially harder. https://aclanthology.org/2025.findings-acl.695/
-- **A Practical Examination of AI-Generated Text Detectors (NAACL 2025)** — demonstrates that detector performance can collapse out of distribution and under modest evasion. https://aclanthology.org/2025.findings-naacl.271/
-- **AI-Generated “Slop” in Online Biomedical Science Educational Videos (JMIR 2025)** — frames slop around low human care, low usefulness/value, and careless production rather than merely “sounds like AI.” https://mededu.jmir.org/2025/1/e80084
-
-For that reason Slop Finder combines two layers:
-
-1. **Laya-MLX semantic signals** — synthetic tone, templated structure, low information density, genericity, and engagement bait.
-2. **Local structural signals** — formulaic hooks, repeated n-grams, listicle structure, calls to action, hype vocabulary, regular sentence cadence, and concrete-specificity evidence.
-
-A single high signal is not enough. Strong matches usually need multiple cues to agree, while several explicit formula patterns can independently raise the score. This aims to detect *slop-like copy* rather than claim authorship.
+A small real-model regression run improved slop detections from **4/13 to 12/13**
+across 38 constructed examples, and incorrect marks from **1 to 0**. These numbers
+are not estimates of real-feed accuracy. One held-out generic business post still
+went undetected. See [validation, limitations, and reproduction commands](docs/VALIDATION.md).
 
 ## Privacy and local networking
 
@@ -189,11 +175,14 @@ The endpoint reports active, free-cache, and peak MLX memory in bytes.
 Static checks:
 
 ```bash
+node --check extension/extraction.js
 node --check extension/content.js
 node --check extension/background.js
 node --check extension/sidepanel.js
-python3 -m py_compile helper/app.py helper/scoring.py
+python3 -m py_compile helper/app.py helper/scoring.py helper/inference.py scripts/evaluate.py
 python3 -m unittest discover -s tests -v
+npm ci
+npm test
 ```
 
 Health check:
