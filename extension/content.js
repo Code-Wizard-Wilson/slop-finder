@@ -126,6 +126,8 @@
         name: "LinkedIn",
         key: "linkedin",
         selectors: [
+          "main [role='listitem'][componentkey^='update-card-focus']",
+          "main [role='listitem']",
           "main div.feed-shared-update-v2",
           "main [data-urn^='urn:li:activity']",
           "main [data-urn*='activity']",
@@ -144,13 +146,16 @@
           "button[aria-label*='Repost']",
           "button[aria-label*='React']"
         ],
-        rootSelector: "article, [role='article'], .feed-shared-update-v2, [data-view-name='feed-full-update'], [data-urn*='activity']",
+        rootSelector: "[role='listitem'][componentkey^='update-card-focus'], [role='listitem'], article, [role='article'], .feed-shared-update-v2, [data-view-name='feed-full-update'], [data-urn*='activity']",
         textSelectors: [
+          "[data-testid='expandable-text-box']",
+          "[data-testid='main-feed-activity-card__commentary']",
           ".update-components-text",
           ".feed-shared-update-v2__description",
           ".feed-shared-text",
           ".break-words",
           "[data-test-id='main-feed-activity-card__commentary']",
+          "[data-testid='expandable-text-box']",
           "[data-view-name='feed-commentary']",
           "[dir='ltr']"
         ],
@@ -164,6 +169,7 @@
     if (!SITE) return MIN_TEXT;
     if (SITE.key === "x") return 18;
     if (SITE.key === "reddit") return 30;
+    if (SITE.key === "linkedin") return 20;
     return MIN_TEXT;
   }
 
@@ -173,6 +179,36 @@
       .replace(/[ \t]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
+  }
+
+  function linkedinFallbackText(root) {
+    if (!root || SITE?.key !== "linkedin") return "";
+
+    const exact = root.querySelector("[data-testid='expandable-text-box']");
+    const exactText = cleanText(exact?.innerText || exact?.textContent);
+    if (exactText) return exactText;
+
+    const candidates = [];
+    for (const node of root.querySelectorAll("div, span, p")) {
+      if (!(node instanceof HTMLElement)) continue;
+      if (node.closest(".slop-finder-overlay")) continue;
+      if (node.closest("button, [role='button'], nav, time")) continue;
+
+      const text = cleanText(node.innerText || node.textContent);
+      if (!text || text.length < 18 || text.length > MAX_TEXT) continue;
+
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 120 || rect.height < 12) continue;
+
+      const aria = cleanText(node.getAttribute("aria-label"));
+      const cls = String(node.className || "");
+      if (/reaction|comment|repost|like|share|social-action|actor|header|footer/i.test(aria + " " + cls)) continue;
+
+      candidates.push(text);
+    }
+
+    candidates.sort((a, b) => b.length - a.length);
+    return candidates[0] || "";
   }
 
   function extractText(root) {
@@ -201,6 +237,10 @@
     }
 
     let text = cleanText(chunks.join("\n\n"));
+
+    if (SITE.key === "linkedin" && text.length < minTextForSite()) {
+      text = linkedinFallbackText(root);
+    }
 
     // On X, tweetText is the actual authored text. Falling back to the whole
     // article adds username, timestamps, media duration and engagement counts,
