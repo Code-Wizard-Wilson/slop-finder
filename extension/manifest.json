@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Slop Finder",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Automatic local AI-slop style detector for X, LinkedIn and Reddit powered by Laya-MLX.",
   "permissions": [
     "activeTab",

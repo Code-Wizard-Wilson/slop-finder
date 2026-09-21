@@ -16,12 +16,14 @@ const latencyValue = $("latencyValue");
 const scanState = $("scanState");
 const clearBtn = $("clearBtn");
 const rescanBtn = $("rescanBtn");
+const allowAccessBtn = $("allowAccessBtn");
 
-const EXPECTED_SCANNER_VERSION = "0.5.2";
+const EXPECTED_SCANNER_VERSION = "0.5.3";
 const EXPECTED_SCORING_VERSION = "0.5.0";
 
 let pollTimer = null;
 let lastFindingsKey = "";
+let attachBlocked = false;
 
 const LABELS = {
   genericity: "Generic",
@@ -57,6 +59,59 @@ async function getTab() {
     throw new Error("Open X, LinkedIn or Reddit in a normal web tab.");
   }
   return tab;
+}
+
+function supportedSocialHost(urlString) {
+  try {
+    const url = new URL(urlString);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return host === "reddit.com" || host.endsWith(".reddit.com") ||
+      host === "x.com" || host === "twitter.com" ||
+      host === "linkedin.com" || host.endsWith(".linkedin.com");
+  } catch {
+    return false;
+  }
+}
+
+function originPattern(urlString) {
+  const url = new URL(urlString);
+  return `${url.protocol}//${url.hostname}/*`;
+}
+
+function looksLikeHostAccessBlock(error) {
+  const message = String(error?.message || error || "");
+  return /blocked|cannot access contents|host permission|host access|not allowed|permission denied|access denied/i.test(message);
+}
+
+async function queueHostAccessRequest(tab) {
+  if (!tab?.id || !supportedSocialHost(tab.url || "")) return false;
+  if (typeof chrome.permissions?.addHostAccessRequest !== "function") return false;
+  try {
+    await chrome.permissions.addHostAccessRequest({ tabId: tab.id });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function showAttachFailure(error) {
+  const tab = await getTab().catch(() => null);
+  const raw = String(error?.message || error || "Could not attach");
+  const blocked = looksLikeHostAccessBlock(error);
+  attachBlocked = blocked;
+  allowAccessBtn.classList.toggle("hidden", !blocked);
+
+  if (blocked && tab) {
+    await queueHostAccessRequest(tab);
+    sitePill.textContent = "Site access blocked";
+    sitePill.className = "site-pill unsupported";
+    setError(`Browser blocked Slop Finder on ${new URL(tab.url).hostname}. Click “Allow site access”, then allow the extension for this site.`);
+    scanState.textContent = "access needed";
+  } else {
+    sitePill.textContent = "Could not attach";
+    sitePill.className = "site-pill unsupported";
+    setError(raw);
+  }
 }
 
 async function forceInjectScanner() {
@@ -168,6 +223,8 @@ async function refreshStatus() {
       status = await sendToTab({ type: "LAYA_STATUS" }, false);
     }
 
+    attachBlocked = false;
+    allowAccessBtn.classList.add("hidden");
     setError("");
 
     if (!status?.supported) {
@@ -222,12 +279,42 @@ async function refreshStatus() {
 
     renderFindings(status.recentFindings || []);
   } catch (error) {
-    const message = String(error?.message || error);
-    setError(message);
-    sitePill.textContent = "Could not attach";
-    sitePill.className = "site-pill unsupported";
+    await showAttachFailure(error);
   }
 }
+
+allowAccessBtn.addEventListener("click", async () => {
+  const tab = await getTab().catch(() => null);
+  if (!tab) return;
+
+  allowAccessBtn.disabled = true;
+  allowAccessBtn.textContent = "Requesting access…";
+  try {
+    const origins = [originPattern(tab.url)];
+    let granted = false;
+
+    if (typeof chrome.permissions?.request === "function") {
+      granted = await chrome.permissions.request({ origins });
+    }
+
+    if (!granted) {
+      await queueHostAccessRequest(tab);
+      setError("Access is still blocked. Open the browser Extensions menu and choose Allow for Slop Finder on this site.");
+      return;
+    }
+
+    await forceInjectScanner();
+    attachBlocked = false;
+    allowAccessBtn.classList.add("hidden");
+    await refreshStatus();
+  } catch (error) {
+    await queueHostAccessRequest(tab);
+    setError(`Could not grant site access: ${String(error?.message || error)}`);
+  } finally {
+    allowAccessBtn.disabled = false;
+    allowAccessBtn.textContent = "Allow site access";
+  }
+});
 
 threshold.addEventListener("input", () => {
   thresholdValue.textContent = `${threshold.value}/100`;
@@ -245,8 +332,12 @@ clearBtn.addEventListener("click", async () => {
 });
 
 rescanBtn.addEventListener("click", async () => {
-  await sendToTab({ type: "LAYA_RESCAN" }).catch((error) => setError(String(error?.message || error)));
-  await refreshStatus();
+  try {
+    await sendToTab({ type: "LAYA_RESCAN" });
+    await refreshStatus();
+  } catch (error) {
+    await showAttachFailure(error);
+  }
 });
 
 chrome.storage.local.get({ slopThreshold: 65, calibrationVersion: 0 }, async ({ slopThreshold, calibrationVersion }) => {

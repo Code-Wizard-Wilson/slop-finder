@@ -1,5 +1,5 @@
 (() => {
-  const SCANNER_VERSION = "0.5.2";
+  const SCANNER_VERSION = "0.5.3";
   const REQUIRED_SCORING_VERSION = "0.5.0";
   const previousScanner = globalThis.__slopFinderScanner;
 

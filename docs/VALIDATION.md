@@ -136,3 +136,17 @@ The JavaScript DOM suite now contains 22 passing tests. New cases verify both th
 2026 semantic LinkedIn card and the legacy LinkedIn layout, plus an end-to-end
 scanner case where a semantic LinkedIn card reaches the helper and increments
 `Scanned`. The helper suite remains 25/25 under `helper/.venv`.
+
+## Browser host-access recovery, extension 0.5.3
+
+Some Chromium builds can withhold an extension's per-site host access even when
+the manifest declares the site. In that state `tabs.sendMessage()` has no
+receiver and programmatic injection can reject with a short error such as
+`Blocked`. The side panel previously reduced that to `Could not attach`.
+
+Extension 0.5.3 recognizes host-access failures on X, LinkedIn and Reddit. On
+Chromium 133+ it registers `chrome.permissions.addHostAccessRequest({tabId})`,
+shows an explicit `Allow site access` action, and on that user gesture calls
+`chrome.permissions.request()` for the current origin. After access is granted,
+the scanner is injected again and status refreshes automatically. Browsers that
+do not implement `addHostAccessRequest` retain a clear manual-access message.
