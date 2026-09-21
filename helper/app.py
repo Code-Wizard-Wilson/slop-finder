@@ -24,7 +24,7 @@ if MODEL_NAME not in MODEL_SPECS:
         f"Choose one of: {', '.join(MODEL_SPECS)}"
     )
 
-app = FastAPI(title="Slop Finder Local Helper", version="0.4.0")
+app = FastAPI(title="Slop Finder Local Helper", version="0.4.1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],

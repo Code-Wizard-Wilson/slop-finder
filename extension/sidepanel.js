@@ -16,6 +16,8 @@ const scanState = $("scanState");
 const clearBtn = $("clearBtn");
 const rescanBtn = $("rescanBtn");
 
+const EXPECTED_SCANNER_VERSION = "0.4.1";
+
 let pollTimer = null;
 let lastFindingsKey = "";
 
@@ -50,6 +52,14 @@ async function getTab() {
     throw new Error("Open X, LinkedIn or Reddit in a normal web tab.");
   }
   return tab;
+}
+
+async function forceInjectScanner() {
+  const tab = await getTab();
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["content.js"]
+  });
 }
 
 async function sendToTab(message, injectIfMissing = true) {
@@ -138,7 +148,16 @@ function renderFindings(findings = []) {
 
 async function refreshStatus() {
   try {
-    const status = await sendToTab({ type: "LAYA_STATUS" });
+    let status = await sendToTab({ type: "LAYA_STATUS" });
+
+    // An already-open tab can keep an old extension content script alive after
+    // the extension is reloaded. Require an explicit scanner-version handshake
+    // and replace stale scanners automatically.
+    if (status?.scannerVersion !== EXPECTED_SCANNER_VERSION) {
+      await forceInjectScanner();
+      status = await sendToTab({ type: "LAYA_STATUS" }, false);
+    }
+
     setError("");
 
     if (!status?.supported) {
@@ -157,21 +176,26 @@ async function refreshStatus() {
     sitePill.textContent = status.site;
     sitePill.className = "site-pill";
 
-    detectedCount.textContent = String(status.foundRoots || 0);
+    detectedCount.textContent = String(status.candidateRoots || status.foundRoots || 0);
     scannedCount.textContent = String(status.scanned || 0);
     flaggedCount.textContent = String(status.flagged || 0);
     queueCount.textContent = String((status.queued || 0) + (status.analyzing || 0));
     latencyValue.textContent = status.lastLatencyMs ? `${status.lastLatencyMs} ms` : "—";
 
+    const scanAge = status.lastScanAt ? Date.now() - Number(status.lastScanAt) : Infinity;
+
     if (status.helperError) {
       scanState.textContent = "retrying";
       setError(`Local helper: ${status.helperError}`);
     } else if (status.analyzing) {
-      scanState.textContent = "analyzing";
+      scanState.textContent = `analyzing · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
     } else if (status.queued) {
-      scanState.textContent = "queued";
+      scanState.textContent = `queued · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
+    } else if (scanAge > 4500) {
+      scanState.textContent = `scanner stalled · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
+      await sendToTab({ type: "LAYA_RESCAN" }, false).catch(() => {});
     } else {
-      scanState.textContent = "watching";
+      scanState.textContent = `watching · v${status.scannerVersion} · DOM ${status.candidateRoots || 0}/${status.foundRoots || 0}`;
     }
 
     renderFindings(status.recentFindings || []);

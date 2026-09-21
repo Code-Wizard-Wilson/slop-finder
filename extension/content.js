@@ -1,9 +1,19 @@
 (() => {
-  if (globalThis.__slopFinderAutoSlopV2) return;
-  globalThis.__slopFinderAutoSlopV2 = true;
+  const SCANNER_VERSION = "0.4.1";
+  const previousScanner = globalThis.__slopFinderScanner;
+
+  if (previousScanner?.version === SCANNER_VERSION && typeof previousScanner.rescan === "function") {
+    previousScanner.rescan();
+    return;
+  }
+
+  if (previousScanner && typeof previousScanner.destroy === "function") {
+    try { previousScanner.destroy(); } catch (_) {}
+  }
 
   const POST_ATTR = "data-slop-finder-post-id";
-  const STATE_ATTR = "data-slop-finder-state";
+  const STATE_ATTR = "data-slop-finder-state-v041";
+  const HASH_ATTR = "data-slop-finder-hash-v041";
   const TAPE_CLASS = "slop-finder-overlay";
   const DEFAULT_THRESHOLD = 0.65;
   const BATCH_SIZE = 4;
@@ -29,6 +39,10 @@
     helperError: "",
     lastLatencyMs: 0,
     foundRoots: 0,
+    candidateRoots: 0,
+    scanCycles: 0,
+    lastScanAt: 0,
+    scannerVersion: SCANNER_VERSION,
   };
 
   const SITE = detectSite();
@@ -270,6 +284,7 @@
       }
     }
 
+    stats.candidateRoots = set.size;
     return [...set];
   }
 
@@ -313,13 +328,13 @@
   }
 
   function enqueuePost(el, text, hash) {
-    const previousHash = el.dataset.slopFinderHash;
+    const previousHash = el.getAttribute(HASH_ATTR);
     const state = el.getAttribute(STATE_ATTR);
 
     if (previousHash === hash && ["queued", "analyzing", "done"].includes(state)) return;
 
     removeTape(el);
-    el.dataset.slopFinderHash = hash;
+    el.setAttribute(HASH_ATTR, hash);
     el.setAttribute(STATE_ATTR, "queued");
 
     const id = ensureId(el);
@@ -336,6 +351,9 @@
 
   function scanPosts() {
     if (!SITE) return;
+
+    stats.scanCycles += 1;
+    stats.lastScanAt = Date.now();
 
     for (const { el, text, hash } of stableRoots()) {
       enqueuePost(el, text, hash);
@@ -680,20 +698,69 @@
     }
   });
 
-  if (!SITE) return;
+  let observer = null;
+  let heartbeatTimer = null;
+  let started = false;
 
-  const observer = new MutationObserver(() => scheduleScan(220));
+  const onScroll = () => scheduleScan(70);
+  const onResize = () => scheduleScan(120);
 
-  const start = () => {
+  function resetStaleDomState() {
+    document.querySelectorAll(`[${STATE_ATTR}], [data-slop-finder-state]`).forEach((el) => {
+      el.removeAttribute(STATE_ATTR);
+      el.removeAttribute(HASH_ATTR);
+      el.removeAttribute("data-slop-finder-state");
+      el.removeAttribute("data-slop-finder-hash");
+    });
+    document.querySelectorAll(`.${TAPE_CLASS}`).forEach((node) => node.remove());
+    document.querySelectorAll(".slop-finder-detected").forEach((node) => {
+      node.classList.remove("slop-finder-detected");
+    });
+  }
+
+  function destroy() {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    observer?.disconnect();
+    observer = null;
+    removeEventListener("scroll", onScroll);
+    removeEventListener("resize", onResize);
+    started = false;
+  }
+
+  function start() {
+    if (started || !SITE) return;
+    started = true;
+
+    resetStaleDomState();
+
+    observer = new MutationObserver(() => scheduleScan(90));
     observer.observe(document.body || document.documentElement, {
       childList: true,
+      characterData: true,
       subtree: true,
     });
 
-    addEventListener("scroll", () => scheduleScan(110), { passive: true });
-    addEventListener("resize", () => scheduleScan(180), { passive: true });
-    scheduleScan(50);
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onResize, { passive: true });
+
+    // Feed implementations virtualize aggressively. A small periodic fallback
+    // catches reused DOM nodes and SPA updates that do not trigger the exact
+    // mutation pattern we expect.
+    heartbeatTimer = setInterval(() => scheduleScan(0), 1400);
+    scheduleScan(0);
+  }
+
+  globalThis.__slopFinderScanner = {
+    version: SCANNER_VERSION,
+    rescan: () => scheduleScan(0),
+    destroy,
+    status: () => ({ ...stats }),
   };
+
+  if (!SITE) return;
 
   if (document.body) {
     start();
