@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "helper"))
 
-from scoring import combine_slop_score, slop_pattern_score, stylometric_features  # noqa: E402
+from scoring import combine_slop_score, semantic_token_count, slop_pattern_score, stylometric_features  # noqa: E402
 
 
 class ScoringRegressionTests(unittest.TestCase):
@@ -131,6 +131,42 @@ class ScoringRegressionTests(unittest.TestCase):
             structural,
         )
         self.assertLess(score, 0.30)
+
+    def test_short_specific_product_praise_is_not_slop(self):
+        text = "Grok 4.7 works extremely well with our Build harness\nX.ai/Build"
+        self.assertLessEqual(semantic_token_count(text), 16)
+        structural = stylometric_features(text)
+        score = combine_slop_score(
+            {
+                "genericity": 0.12,
+                "templated_style": 0.91,
+                "synthetic_tone": 0.24,
+                "engagement_bait": 0.03,
+                "low_information": 0.08,
+            },
+            slop_pattern_score(text),
+            text,
+            structural,
+        )
+        self.assertLess(score, 0.65)
+
+    def test_short_formulaic_copy_can_still_flag(self):
+        text = "7 uncomfortable truths. Save this post. Follow for more."
+        pattern = slop_pattern_score(text)
+        structural = stylometric_features(text)
+        score = combine_slop_score(
+            {
+                "genericity": 0.58,
+                "templated_style": 0.66,
+                "synthetic_tone": 0.61,
+                "engagement_bait": 0.72,
+                "low_information": 0.60,
+            },
+            pattern,
+            text,
+            structural,
+        )
+        self.assertGreaterEqual(score, 0.65)
 
 
 if __name__ == "__main__":
