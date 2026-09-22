@@ -6,6 +6,10 @@ Slop Finder is a Chromium extension backed by a local [Laya-MLX](https://github.
 
 > The score is a **heuristic style-match score**, not proof that AI authored a post. Text-only AI authorship detection is inherently uncertain, so Slop Finder is designed to abstain when context is insufficient.
 
+## Demo
+
+[▶ Watch Slop Finder in action](docs/slop-finder-demo.mp4)
+
 ## What it does
 
 - Scans new posts automatically while scrolling.
